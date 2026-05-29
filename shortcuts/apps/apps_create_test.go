@@ -207,3 +207,80 @@ func TestAppsCreate_DryRun(t *testing.T) {
 		t.Fatalf("dry-run missing app_type: %s", got)
 	}
 }
+
+func TestAppsCreate_FullstackSuccess(t *testing.T) {
+	factory, stdout, reg := newAppsExecuteFactory(t)
+	stub := &httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/spark/v1/apps",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"app": map[string]interface{}{"app_id": "app_fs", "name": "Demo"},
+			},
+		},
+	}
+	reg.Register(stub)
+
+	if err := runAppsShortcut(t, AppsCreate,
+		[]string{"+create", "--name", "Demo", "--app-type", "fullstack", "--message", "build a CRM", "--as", "user"},
+		factory, stdout); err != nil {
+		t.Fatalf("execute err=%v", err)
+	}
+
+	var sent map[string]interface{}
+	if err := json.Unmarshal(stub.CapturedBody, &sent); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if sent["app_type"] != "fullstack" {
+		t.Fatalf("body.app_type = %v (want fullstack)", sent["app_type"])
+	}
+	if sent["message"] != "build a CRM" {
+		t.Fatalf("body.message = %v (want \"build a CRM\")", sent["message"])
+	}
+}
+
+func TestAppsCreate_HTMLIgnoresMessage(t *testing.T) {
+	factory, stdout, reg := newAppsExecuteFactory(t)
+	stub := &httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/spark/v1/apps",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"app": map[string]interface{}{"app_id": "app_x", "name": "Demo"},
+			},
+		},
+	}
+	reg.Register(stub)
+
+	if err := runAppsShortcut(t, AppsCreate,
+		[]string{"+create", "--name", "Demo", "--app-type", "HTML", "--message", "ignored", "--as", "user"},
+		factory, stdout); err != nil {
+		t.Fatalf("execute err=%v", err)
+	}
+
+	var sent map[string]interface{}
+	if err := json.Unmarshal(stub.CapturedBody, &sent); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if _, present := sent["message"]; present {
+		t.Fatalf("message should be omitted for HTML app-type: %v", sent)
+	}
+}
+
+func TestAppsCreate_FullstackDryRun(t *testing.T) {
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	if err := runAppsShortcut(t, AppsCreate,
+		[]string{"+create", "--name", "Demo", "--app-type", "fullstack", "--message", "m", "--dry-run", "--as", "user"},
+		factory, stdout); err != nil {
+		t.Fatalf("dry-run err=%v", err)
+	}
+	got := stdout.String()
+	if !strings.Contains(got, `"app_type": "fullstack"`) {
+		t.Fatalf("dry-run missing app_type fullstack: %s", got)
+	}
+	if !strings.Contains(got, `"message": "m"`) {
+		t.Fatalf("dry-run missing message: %s", got)
+	}
+}

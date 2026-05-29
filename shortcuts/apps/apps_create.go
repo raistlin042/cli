@@ -80,5 +80,10 @@ func buildAppsCreateBody(rctx *common.RuntimeContext) map[string]interface{} {
 	if icon := strings.TrimSpace(rctx.Str("icon-url")); icon != "" {
 		body["icon_url"] = icon
 	}
+	if strings.TrimSpace(rctx.Str("app-type")) == "fullstack" {
+		if msg := strings.TrimSpace(rctx.Str("message")); msg != "" {
+			body["message"] = msg
+		}
+	}
 	return body
 }
