@@ -169,6 +169,26 @@ func TestAppsCreate_RejectsInvalidAppType(t *testing.T) {
 	}
 }
 
+func TestAppsCreate_FullstackRequiresMessage(t *testing.T) {
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	err := runAppsShortcut(t, AppsCreate,
+		[]string{"+create", "--name", "Demo", "--app-type", "fullstack", "--as", "user"},
+		factory, stdout)
+	if err == nil || !strings.Contains(err.Error(), "message is required") {
+		t.Fatalf("expected message-required error, got %v", err)
+	}
+}
+
+func TestAppsCreate_FullstackBlankMessageRejected(t *testing.T) {
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	err := runAppsShortcut(t, AppsCreate,
+		[]string{"+create", "--name", "Demo", "--app-type", "fullstack", "--message", "   ", "--as", "user"},
+		factory, stdout)
+	if err == nil || !strings.Contains(err.Error(), "message is required") {
+		t.Fatalf("expected blank message rejected, got %v", err)
+	}
+}
+
 func TestAppsCreate_DryRun(t *testing.T) {
 	factory, stdout, _ := newAppsExecuteFactory(t)
 	if err := runAppsShortcut(t, AppsCreate,
