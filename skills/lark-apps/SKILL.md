@@ -102,6 +102,18 @@ lark-cli auth login --domain apps
 - `apps +access-scope-set` 三种 scope **互斥**：specific 必传 `--targets`、不允许 `--require-login`；public 必传 `--require-login`、不允许 `--targets` / `--apply-enabled` / `--approver`；tenant 不允许任何其他 flag
 - 失败时**优先转述 `error.hint`**（CLI 给的可执行修复建议），hint 为空时退回 `error.message`；不要原样把 envelope JSON 复述给用户。`error.type == "missing_scope"` 例外：按上面「身份与一次性授权」走
 
+## 开发模式（规划中 · 命令未上线 · 暂不启用）
+
+> ⚠️ **本节描述规划中的本地 / 云端开发模式。下列命令尚未上线（`+git-credential-init` / `+git-credential-list` / `+git-credential-remove`、`+db-table-list` / `+db-table-schema` / `+db-sql` / `+db-multi-env-init`、`+env-pull`、`+session-create` / `+session-read` / `+session-list` / `+session-stop`、`+chat`、`+publish` / `+publish-status` / `+publish-history`），当前请勿调用、勿进入这些流程。** 用户提出本地开发 / 云端开发 / clone 到本地 / 数据库操作 / 云端 session 对话等需求时，**明确告知「妙搭本地 / 云端开发能力正在规划中，暂未上线」**，不要尝试执行上述命令。本区块仅作设计预览，便于命令上线后接入路由。
+
+规划中的意图路由（**命令上线后**才启用）：
+
+| 用户意图 | 进入条件 | 设计预览 ref |
+|---------|---------|------------|
+| 创建 + 本地开发 | 新建 fullstack 应用并要在本地改代码 | [local-setup](references/lark-apps-local-setup.md) → [local-dev](references/lark-apps-local-dev.md) |
+| 已有 appId + 本地开发 | 给了 app_id / 应用链接，要本地开发 | [local-setup](references/lark-apps-local-setup.md) → [local-dev](references/lark-apps-local-dev.md) |
+| 云端开发 | 给了 app_id，非代码目录，要 chat 式开发 | [cloud-dev](references/lark-apps-cloud-dev.md) |
+
 ## Shortcuts（推荐优先使用）
 
 Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）。有 Shortcut 的操作优先使用。
