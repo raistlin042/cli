@@ -70,9 +70,10 @@ var validAppTypes = map[string]bool{
 }
 
 func buildAppsCreateBody(rctx *common.RuntimeContext) map[string]interface{} {
+	appType := strings.TrimSpace(rctx.Str("app-type"))
 	body := map[string]interface{}{
 		"name":     strings.TrimSpace(rctx.Str("name")),
-		"app_type": strings.TrimSpace(rctx.Str("app-type")),
+		"app_type": appType,
 	}
 	if desc := strings.TrimSpace(rctx.Str("description")); desc != "" {
 		body["description"] = desc
@@ -80,10 +81,8 @@ func buildAppsCreateBody(rctx *common.RuntimeContext) map[string]interface{} {
 	if icon := strings.TrimSpace(rctx.Str("icon-url")); icon != "" {
 		body["icon_url"] = icon
 	}
-	if strings.TrimSpace(rctx.Str("app-type")) == "fullstack" {
-		if msg := strings.TrimSpace(rctx.Str("message")); msg != "" {
-			body["message"] = msg
-		}
+	if msg := strings.TrimSpace(rctx.Str("message")); appType == "fullstack" && msg != "" {
+		body["message"] = msg
 	}
 	return body
 }
