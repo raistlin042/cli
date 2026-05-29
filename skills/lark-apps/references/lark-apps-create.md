@@ -114,7 +114,7 @@ lark-cli apps +create --name "Q4 调研" --app-type HTML --description "..."
 
 返回后同场景 1。
 
-### 场景：创建 fullstack 应用
+### 场景 3：创建 fullstack 应用
 
 识别到用户需要全栈/带后端能力的应用后（如需要登录、数据库、增删改查、用户系统等），使用 `--app-type fullstack`，并将用户原话原文作为 `--message` 传入：
 
@@ -129,7 +129,7 @@ lark-cli apps +create --name "团队任务看板" --app-type fullstack \
 
 > ⚠️ **注意**：fullstack 应用创建后续的本地开发链路（git 凭据初始化 + git clone）**待 `+git-credential-init` 命令就绪后补充**，当前版本到 `+create` 为止。
 
-### 场景 3：失败处理
+### 场景 4：失败处理
 
 转述 `error.hint`（优先）或 `error.message`，**不要**原样输出 envelope JSON。
 
