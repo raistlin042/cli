@@ -167,6 +167,24 @@ func TestAppsCreate_RejectsInvalidAppType(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not supported") {
 		t.Fatalf("expected unsupported app-type error, got %v", err)
 	}
+	if !strings.Contains(err.Error(), "fullstack") {
+		t.Fatalf("expected allow-list error to mention \"fullstack\", got %v", err)
+	}
+}
+
+func TestAppsCreate_RejectsWrongCaseFullstack(t *testing.T) {
+	cases := []string{"FULLSTACK", "Fullstack", "FullStack"}
+	for _, appType := range cases {
+		t.Run(appType, func(t *testing.T) {
+			factory, stdout, _ := newAppsExecuteFactory(t)
+			err := runAppsShortcut(t, AppsCreate,
+				[]string{"+create", "--name", "Demo", "--app-type", appType, "--message", "m", "--as", "user"},
+				factory, stdout)
+			if err == nil || !strings.Contains(err.Error(), "not supported") {
+				t.Fatalf("expected case-sensitive rejection of %q, got %v", appType, err)
+			}
+		})
+	}
 }
 
 func TestAppsCreate_FullstackRequiresMessage(t *testing.T) {
