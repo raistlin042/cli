@@ -1,6 +1,6 @@
 ---
 name: lark-apps
-description: "把本地 HTML 文件或目录部署到飞书妙搭（Miaoda），生成一个公网可访问的应用及其链接（URL）。当用户要创建 HTML 或要把 HTML、静态网站或 Web demo 发布成公网可访问的链接 / 可分享链接、设置应用共享范围，或提到妙搭 / Miaoda 时使用。凡产出可独立访问的 HTML 产物都属本 skill 的潜在归宿，是否真要部署由 skill 内部协议判断。不用于：上传普通文件到云空间/云盘/云存储（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
+description: "把本地 HTML 文件或目录部署到飞书妙搭（Miaoda），生成一个公网可访问的应用及其链接（URL）。当用户要创建 HTML 或要把 HTML、静态网站或 Web demo 发布成公网可访问的链接 / 可分享链接、创建全栈（fullstack）应用 / 带后端（数据库、登录、API）的妙搭应用、设置应用共享范围，或提到妙搭 / Miaoda 时使用。凡产出可独立访问的 HTML 产物都属本 skill 的潜在归宿，是否真要部署由 skill 内部协议判断。不用于：上传普通文件到云空间/云盘/云存储（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -67,7 +67,7 @@ lark-cli auth login --domain apps
 
 | 步骤 | 命令 | 说明 |
 |------|------|------|
-| 1. 新建应用 | `apps +create --name "<根据内容主题起的应用名>" --app-type HTML` → 从响应里拿 `app_id` | 默认都走新建（**不要尝试搜索 / 枚举已有应用**）。用户明确要复用现有应用时让他提供 **妙搭应用链接** 或 **app_id 字符串**（详见下方"快速决策"）；`--app-type` 必填，区分大小写，静态/HTML 场景传 `HTML`，全栈场景传 `fullstack`（需加 `--message`，见下方「快速决策」意图分流） |
+| 1. 新建应用 | `apps +create --name "<根据内容主题起的应用名>" --app-type HTML` → 从响应里拿 `app_id` | 默认都走新建（**不要尝试搜索 / 枚举已有应用**）。用户明确要复用现有应用时让他提供 **妙搭应用链接** 或 **app_id 字符串**（详见下方"快速决策"）；应用类型按需选择，见下方「快速决策 > HTML vs fullstack 意图分流」 |
 | 1.5 预检（可选） | `apps +html-publish --app-id <id> --path <path> --dry-run` 看 manifest | 主要用来看 `files` / `total_size_bytes`。**凭据文件已经在 Validate 阶段直接 exit 非 0**（不再是 advisory warning），所以预检通过就说明走真发也通过；预检报 `.env` 等命中时，先清产物或加 `--allow-sensitive` 再 publish |
 | 2. 发布 HTML | `apps +html-publish --app-id <id> --path <文件或目录>` | 必走 |
 | 3. 设置可用范围（可选） | `apps +access-scope-set --app-id <id> --scope tenant\|public\|specific ...` | 用户说"公开 / 全员可见 / 让 Alice 看 / 互联网可分享"等 |
