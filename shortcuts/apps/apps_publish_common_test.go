@@ -3,7 +3,10 @@
 
 package apps
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestNodeStatusName(t *testing.T) {
 	cases := map[int]string{
@@ -38,5 +41,13 @@ func TestInjectStatusName(t *testing.T) {
 	injectStatusName(m2)
 	if _, ok := m2["status_name"]; ok {
 		t.Error("status_name should not be set when status is absent")
+	}
+}
+
+func TestInjectStatusName_JSONNumber(t *testing.T) {
+	m := map[string]interface{}{"status": json.Number("3")}
+	injectStatusName(m)
+	if m["status_name"] != "Success" {
+		t.Errorf("json.Number path: status_name = %v, want Success", m["status_name"])
 	}
 }
