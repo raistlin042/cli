@@ -17,6 +17,7 @@ func TestRedactURLCredentials(t *testing.T) {
 		{"empty", "", ""},
 		{"non-url unchanged", "some error message", "some error message"},
 		{"uppercase scheme", "HTTP://u:t@h/r.git", "HTTP://***@h/r.git"},
+		{"multiple @ in userinfo", "https://user:p@ss@host/r.git", "https://***@host/r.git"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
