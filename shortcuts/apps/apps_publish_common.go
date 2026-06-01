@@ -57,9 +57,12 @@ func ensurePublishWired() error {
 	if publishAPIWired {
 		return nil
 	}
+	// User-facing hint stays in user language; the wiring detail (fill the
+	// gateway paths + flip publishAPIWired) lives in the publishAPIWired comment
+	// block above, where the maintainer who enables it will be looking.
 	return output.ErrWithHint(output.ExitAPI, "unavailable",
 		"apps publish endpoints are not yet deployed to the OpenAPI gateway",
-		"only --dry-run is available for now; once lark.apaas.devops v1.0.381 RPC methods are exposed on the gateway, fill the gateway paths in apps_publish_common.go and set publishAPIWired=true")
+		"this feature is not available yet — use --dry-run to preview the request; it will be enabled once the endpoint is deployed")
 }
 
 // releaseStatusName maps the upstream ReleaseStatus enum to a human-readable name.
