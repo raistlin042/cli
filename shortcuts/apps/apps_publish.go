@@ -54,7 +54,7 @@ var AppsPublish = common.Shortcut{
 		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		branch := strings.TrimSpace(rctx.Str("branch"))
-		path := strings.Replace(publishCreatePath, "%s", validate.EncodePathSegment(appID), 1)
+		path := fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))
 		data, err := rctx.CallAPI("POST", path, nil, buildPublishBody(appID, branch))
 		if err != nil {
 			return err

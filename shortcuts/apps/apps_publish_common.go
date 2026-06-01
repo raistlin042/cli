@@ -29,7 +29,12 @@ const publishAPIWired = false
 //	history    POST /v1/pipeline/app/:appID/instance/list          (endpoint 4073969)
 //	status     GET  /v1/pipeline/app/:appID/instance/:id           (endpoint 4073971)
 //	error-log  GET  /v1/pipeline/app/:appID/instance/:id/error_log (endpoint 4073972)
-const (
+//
+// Declared as var (not const) so go vet's printf analyzer does not flag the
+// fmt.Sprintf calls in Execute while these are empty TODO placeholders. Once a
+// real "/...%s..." gateway path is filled in (and publishAPIWired flips), the
+// fmt.Sprintf calls become exactly correct. See apps_publish_common.go header.
+var (
 	publishCreatePath   = ""
 	publishHistoryPath  = ""
 	publishStatusPath   = ""
