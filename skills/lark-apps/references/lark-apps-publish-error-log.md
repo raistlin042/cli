@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status_name=Failed` 后调用，定位失败根因。
+获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status=failed` 后调用，定位失败根因。
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
@@ -36,8 +36,7 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry
 {
   "ok": true,
   "data": {
-    "status": 3,
-    "status_name": "Failed",
+    "status": "failed",
     "error_logs": [
       {
         "step": "frontend-build",
@@ -83,8 +82,7 @@ frontend-build   dependency conflict: react@18 vs react@17
 
 | 字段 | 含义 |
 |---|---|
-| `status` | ReleaseStatus 整数（0–5，详见 `+publish-status` 文档）|
-| `status_name` | ReleaseStatus 可读名称 |
+| `status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
 | `error_logs` | 失败步骤列表；若无失败记录则为空数组 `[]` |
 | `error_logs[].step` | 失败步骤名 |
 | `error_logs[].errorLog` | 错误日志，**转述给用户帮助定位问题** |
@@ -96,7 +94,7 @@ frontend-build   dependency conflict: react@18 vs react@17
 ```bash
 # 先确认状态
 lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy
-# status_name=Failed 时查错误日志
+# status=failed 时查错误日志
 lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --format table
 ```
 
@@ -104,9 +102,9 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --for
 
 > 发布失败，步骤 `{step}` 报错：{errorLog}
 
-### 场景 2：error_logs 为空但 status=Failed
+### 场景 2：error_logs 为空但 status=failed
 
-说明失败发生在步骤记录之前（如参数校验阶段），转述 `status_name` 给用户并建议检查发布配置。
+说明失败发生在步骤记录之前（如参数校验阶段），转述 `status` 给用户并建议检查发布配置。
 
 ## 协同命令
 

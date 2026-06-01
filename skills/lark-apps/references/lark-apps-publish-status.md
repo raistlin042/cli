@@ -35,8 +35,7 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
   "data": {
     "release": {
       "releaseID": "release_yyy",
-      "status": 2,
-      "status_name": "Finished",
+      "status": "finished",
       "createdAt": 1748000000000,
       "updatedAt": 1748000120000
     }
@@ -70,20 +69,8 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
 
 | 字段 | 含义 |
 |---|---|
-| `release.status` | ReleaseStatus 整数（见下表）|
-| `release.status_name` | ReleaseStatus 可读名称，**优先向用户展示此字段** |
+| `release.status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
 | `release.createdAt` / `updatedAt` | Unix 毫秒时间戳（不做时区格式化）|
-
-### ReleaseStatus 枚举
-
-| 值 | 名称 | 含义 |
-|---|---|---|
-| 0 | Unspecified | 未知/初始化 |
-| 1 | Publishing | 发布中 |
-| 2 | Finished | 已完成 |
-| 3 | Failed | 失败 |
-| 4 | Canceled | 已取消 |
-| 5 | Rollback | 已回滚 |
 
 ## 典型场景
 
@@ -96,9 +83,9 @@ lark-cli apps +publish --app-id app_xxx
 lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy
 ```
 
-- `status_name=Publishing`：发布仍在进行，稍后重试
-- `status_name=Finished`：发布成功
-- `status_name=Failed`：发布失败，用 `apps +publish-error-log` 获取错误详情
+- `status=publishing`：发布仍在进行，稍后重试
+- `status=finished`：发布成功
+- `status=failed`：发布失败，用 `apps +publish-error-log` 获取错误详情
 
 ### 场景 2：发布失败后跳转错误日志
 

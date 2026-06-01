@@ -36,12 +36,13 @@ lark-cli apps +publish --app-id app_xxx --dry-run
 {
   "ok": true,
   "data": {
-    "release_id": "release_yyy"
+    "release_id": "release_yyy",
+    "status": "publishing"
   }
 }
 ```
 
-`release_id` 即发布ID；后续查状态 / 错误日志时把该值传给 `--release-id`。
+`release_id` 即发布ID；后续查状态 / 错误日志时把该值传给 `--release-id`。`status` 为字符串，初始值为 `publishing`，最终值为 `finished` 或 `failed`。
 
 **接口未上线（当前行为）：**
 
@@ -86,6 +87,7 @@ lark-cli apps +publish --app-id app_xxx --dry-run
 | 字段 | 含义 |
 |---|---|
 | `data.release_id` | 发布ID，用于 `+publish-status` / `+publish-error-log` 的 `--release-id` |
+| `data.status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
 | `error.type=unavailable` | 接口尚未上网关，等部署后自动启用 |
 | `error.type=validation` | 本地参数错，修正 flag 后重试 |
 

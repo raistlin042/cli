@@ -21,6 +21,9 @@ lark-cli apps +publish-history --app-id app_xxx --page-token eyJxxx
 # 指定返回条数（仅在需要不同页大小时才传）
 lark-cli apps +publish-history --app-id app_xxx --limit 10
 
+# 只看失败的发布
+lark-cli apps +publish-history --app-id app_xxx --status failed
+
 # 预演（当前可用）
 lark-cli apps +publish-history --app-id app_xxx --dry-run
 ```
@@ -32,6 +35,7 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 | `--app-id <id>` | ✅ | 应用 ID |
 | `--limit <n>` | ❌ | 每页条数，范围 1–500；**不传则使用服务端默认（约 50 条）——通常应省略此参数，除非需要特定页大小或分页** |
 | `--page-token <token>` | ❌ | 上一页响应的 `next_page_token`，用于翻页 |
+| `--status <status>` | ❌ | 按发布状态过滤；可选值：`publishing` / `finished` / `failed` |
 
 ## 返回值
 
@@ -44,8 +48,7 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
     "releases": [
       {
         "releaseID": "release_yyy",
-        "status": 2,
-        "status_name": "Finished",
+        "status": "finished",
         "createdAt": 1748000000000,
         "updatedAt": 1748000120000
       }
@@ -59,8 +62,8 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 **`--format table` 视图（网关就绪后）：**
 
 ```
-releaseID     status_name  createdAt         updatedAt
-release_yyy   Finished     1748000000000     1748000120000
+releaseID     status    createdAt         updatedAt
+release_yyy   finished  1748000000000     1748000120000
 ```
 
 **接口未上线（当前行为）：**
@@ -81,22 +84,10 @@ release_yyy   Finished     1748000000000     1748000120000
 | 字段 | 含义 |
 |---|---|
 | `releases[].releaseID` | 发布ID，即 `+publish-status` / `+publish-error-log` 的 `--release-id` |
-| `releases[].status` | ReleaseStatus 整数（见下表） |
-| `releases[].status_name` | ReleaseStatus 可读名称 |
+| `releases[].status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
 | `releases[].createdAt` / `updatedAt` | Unix 毫秒时间戳（不做时区格式化）|
 | `next_page_token` | 下一页游标；`has_more=false` 时忽略 |
 | `has_more` | 是否还有更多页 |
-
-### ReleaseStatus 枚举
-
-| 值 | 名称 |
-|---|---|
-| 0 | Unspecified |
-| 1 | Publishing |
-| 2 | Finished |
-| 3 | Failed |
-| 4 | Canceled |
-| 5 | Rollback |
 
 ## 典型场景
 
@@ -116,6 +107,14 @@ lark-cli apps +publish-history --app-id app_xxx
 # 第二页（用上一页的 next_page_token）
 lark-cli apps +publish-history --app-id app_xxx --page-token eyJxxx
 ```
+
+### 场景 3：只看失败的发布
+
+```bash
+lark-cli apps +publish-history --app-id app_xxx --status failed --format table
+```
+
+找到目标 `releaseID` 后，用 `+publish-error-log` 查失败根因。
 
 ## 协同命令
 
