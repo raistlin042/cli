@@ -41,15 +41,13 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 {
   "ok": true,
   "data": {
-    "instances": [
+    "releases": [
       {
-        "ID": "pipeline_task_yyy",
-        "status": 3,
-        "status_name": "Success",
-        "appID": "app_xxx",
-        "creator": "user_zzz",
-        "createdAt": 1748000000,
-        "updatedAt": 1748000120
+        "releaseID": "release_yyy",
+        "status": 2,
+        "status_name": "Finished",
+        "createdAt": 1748000000000,
+        "updatedAt": 1748000120000
       }
     ],
     "next_page_token": "eyJxxx",
@@ -61,8 +59,8 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 **`--format table` 视图（网关就绪后）：**
 
 ```
-ID                    status_name  creator   createdAt
-pipeline_task_yyy     Success      user_zzz  1748000000
+releaseID     status_name  createdAt         updatedAt
+release_yyy   Finished     1748000000000     1748000120000
 ```
 
 **接口未上线（当前行为）：**
@@ -82,24 +80,23 @@ pipeline_task_yyy     Success      user_zzz  1748000000
 
 | 字段 | 含义 |
 |---|---|
-| `instances[].ID` | 发布实例 ID，即 `+publish-status` / `+publish-error-log` 的 `--instance-id` |
-| `instances[].status` | NodeStatus 整数（见下表） |
-| `instances[].status_name` | NodeStatus 可读名称 |
-| `instances[].createdAt` / `updatedAt` | Unix 秒时间戳（不做时区格式化）|
+| `releases[].releaseID` | 发布ID，即 `+publish-status` / `+publish-error-log` 的 `--release-id` |
+| `releases[].status` | ReleaseStatus 整数（见下表） |
+| `releases[].status_name` | ReleaseStatus 可读名称 |
+| `releases[].createdAt` / `updatedAt` | Unix 毫秒时间戳（不做时区格式化）|
 | `next_page_token` | 下一页游标；`has_more=false` 时忽略 |
 | `has_more` | 是否还有更多页 |
 
-### NodeStatus 枚举
+### ReleaseStatus 枚举
 
 | 值 | 名称 |
 |---|---|
 | 0 | Unspecified |
-| 1 | ToDo |
-| 2 | Running |
-| 3 | Success |
-| 4 | Failed |
-| 5 | Canceled |
-| 6 | HoldOn |
+| 1 | Publishing |
+| 2 | Finished |
+| 3 | Failed |
+| 4 | Canceled |
+| 5 | Rollback |
 
 ## 典型场景
 
@@ -109,7 +106,7 @@ pipeline_task_yyy     Success      user_zzz  1748000000
 lark-cli apps +publish-history --app-id app_xxx --format table
 ```
 
-返回后，找到目标发布实例的 `ID`，再用 `+publish-status` 查详情。
+返回后，找到目标发布的 `releaseID`，再用 `+publish-status` 查详情。
 
 ### 场景 2：翻页查询
 

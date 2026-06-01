@@ -36,13 +36,12 @@ lark-cli apps +publish --app-id app_xxx --dry-run
 {
   "ok": true,
   "data": {
-    "instance_id": "pipeline_task_yyy",
-    "pipeline_task_id": "pipeline_task_yyy"
+    "release_id": "release_yyy"
   }
 }
 ```
 
-`instance_id` 与 `pipeline_task_id` 同值；后续查状态 / 错误日志时把 `instance_id` 传给 `--instance-id`。
+`release_id` 即发布ID；后续查状态 / 错误日志时把该值传给 `--release-id`。
 
 **接口未上线（当前行为）：**
 
@@ -73,10 +72,10 @@ lark-cli apps +publish --app-id app_xxx --dry-run
   "ok": true,
   "data": {
     "dry_run": true,
-    "method": "POST",
-    "upstream_path": "/v1/devops/app/:appID/release",
+    "psm": "lark.apaas.devops",
+    "rpc_method": "OpenAPICreateRelease",
+    "request": { "appID": "app_xxx" },
     "gateway_status": "not_deployed",
-    "body": { "appID": "app_xxx" },
     "note": "upstream PSM reference path (lark.apaas.devops); gateway path TBD"
   }
 }
@@ -86,8 +85,7 @@ lark-cli apps +publish --app-id app_xxx --dry-run
 
 | 字段 | 含义 |
 |---|---|
-| `data.instance_id` | 发布实例 ID，用于 `+publish-status` / `+publish-error-log` 的 `--instance-id` |
-| `data.pipeline_task_id` | 同上（两者同值，保留向后兼容）|
+| `data.release_id` | 发布ID，用于 `+publish-status` / `+publish-error-log` 的 `--release-id` |
 | `error.type=unavailable` | 接口尚未上网关，等部署后自动启用 |
 | `error.type=validation` | 本地参数错，修正 flag 后重试 |
 
@@ -101,8 +99,8 @@ lark-cli apps +publish --app-id app_xxx --dry-run
 
 # 网关就绪后：
 lark-cli apps +publish --app-id app_xxx
-# 拿到 instance_id 后查状态：
-lark-cli apps +publish-status --app-id app_xxx --instance-id pipeline_task_yyy
+# 拿到 release_id 后查状态：
+lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy
 ```
 
 ### 场景 2：接口未上线时的处理

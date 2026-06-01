@@ -114,7 +114,7 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 | [`+access-scope-set`](references/lark-apps-access-scope-set.md) | 设置应用可用范围（specific / public / tenant，三态互斥校验） |
 | [`+access-scope-get`](references/lark-apps-access-scope-get.md) | 查看应用当前可用范围（响应 scope 枚举 `All` / `Tenant` / `Range`；可作"备份 / 复制 scope 配置"前置读） |
 | [`+html-publish`](references/lark-apps-html-publish.md) | **把本地 HTML 文件 / 目录 / PPT / 静态网站部署为可分享的妙搭应用，返回访问 URL**（用户明示部署 / 分享时直接调；仅说"可演示"时先问用户是否要部署再调） |
-| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布单（release），触发发布流水线；成功返回 `instance_id` 供后续轮询 |
+| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布（release），触发发布流水线；成功返回 `release_id` 供后续轮询 |
 | [`+publish-history`](references/lark-apps-publish-history.md) | 分页查询应用发布历史（`--limit 1-500`，省略则用服务端默认约 50 条；`--page-token` 翻页） |
-| [`+publish-status`](references/lark-apps-publish-status.md) | 查单个发布实例状态 / 详情（需 `--instance-id`；`status_name=Failed` 时转用 `+publish-error-log`） |
-| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 获取失败发布实例的错误日志，列出失败 job 及 `errorMsg`（需 `--instance-id`） |
+| [`+publish-status`](references/lark-apps-publish-status.md) | 查单个发布状态 / 详情（需 `--release-id`；`status_name=Failed` 时转用 `+publish-error-log`） |
+| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 获取失败发布的错误日志，列出失败步骤及 `errorLog`（需 `--release-id`） |

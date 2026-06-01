@@ -2,23 +2,23 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-获取指定发布实例的错误日志，列出失败的 job 及其组件名和错误原因。通常在 `apps +publish-status` 返回 `status_name=Failed` 后调用，定位失败根因。
+获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status_name=Failed` 后调用，定位失败根因。
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
-> **⚠️ 注意：** 这里的「实例号 / 流水线实例号」是妙搭**发布实例** ID（`apps +publish` 返回的 `instance_id`），**不是飞书审批实例号**。查发布进度用 `apps +publish-status`、查失败原因用 `apps +publish-error-log`；不要路由到 lark-approval / 审批相关命令。
+> **⚠️ 注意：** 这里的「发布ID / release_id」是妙搭**发布** ID（`apps +publish` 返回的 `release_id`），**不是飞书审批实例号**。查发布进度用 `apps +publish-status`、查失败原因用 `apps +publish-error-log`；不要路由到 lark-approval / 审批相关命令。
 
 ## 命令
 
 ```bash
 # 查询发布错误日志
-lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yyy
+lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy
 
 # 表格视图
-lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yyy --format table
+lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --format table
 
 # 预演（当前可用）
-lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yyy --dry-run
+lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry-run
 ```
 
 ## 参数
@@ -26,7 +26,7 @@ lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yy
 | 参数 | 必填 | 说明 |
 |---|---|---|
 | `--app-id <id>` | ✅ | 应用 ID |
-| `--instance-id <id>` | ✅ | 发布实例 ID（即 `apps +publish` 响应的 `instance_id`）|
+| `--release-id <id>` | ✅ | 发布ID（即 `apps +publish` 响应的 `release_id`）|
 
 ## 返回值
 
@@ -36,13 +36,12 @@ lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yy
 {
   "ok": true,
   "data": {
-    "status": 4,
+    "status": 3,
     "status_name": "Failed",
-    "error_jobs": [
+    "error_logs": [
       {
-        "jobID": "job_aaa",
-        "componentName": "frontend-build",
-        "errorMsg": "dependency conflict: react@18 vs react@17"
+        "step": "frontend-build",
+        "errorLog": "dependency conflict: react@18 vs react@17"
       }
     ]
   }
@@ -54,8 +53,8 @@ lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yy
 ```
 status: Failed
 
-jobID     componentName    errorMsg
-job_aaa   frontend-build   dependency conflict: react@18 vs react@17
+step             errorLog
+frontend-build   dependency conflict: react@18 vs react@17
 ```
 
 **接口未上线（当前行为）：**
@@ -76,7 +75,7 @@ job_aaa   frontend-build   dependency conflict: react@18 vs react@17
 ```json
 {
   "ok": false,
-  "error": { "type": "validation", "message": "--instance-id is required" }
+  "error": { "type": "validation", "message": "--release-id is required" }
 }
 ```
 
@@ -84,12 +83,11 @@ job_aaa   frontend-build   dependency conflict: react@18 vs react@17
 
 | 字段 | 含义 |
 |---|---|
-| `status` | NodeStatus 整数（0–6，详见 `+publish-status` 文档）|
-| `status_name` | NodeStatus 可读名称 |
-| `error_jobs` | 失败 job 列表；若无失败 job 则为空数组 `[]` |
-| `error_jobs[].jobID` | 失败 job ID |
-| `error_jobs[].componentName` | 失败组件名 |
-| `error_jobs[].errorMsg` | 错误信息，**转述给用户帮助定位问题** |
+| `status` | ReleaseStatus 整数（0–5，详见 `+publish-status` 文档）|
+| `status_name` | ReleaseStatus 可读名称 |
+| `error_logs` | 失败步骤列表；若无失败记录则为空数组 `[]` |
+| `error_logs[].step` | 失败步骤名 |
+| `error_logs[].errorLog` | 错误日志，**转述给用户帮助定位问题** |
 
 ## 典型场景
 
@@ -97,18 +95,18 @@ job_aaa   frontend-build   dependency conflict: react@18 vs react@17
 
 ```bash
 # 先确认状态
-lark-cli apps +publish-status --app-id app_xxx --instance-id pipeline_task_yyy
+lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy
 # status_name=Failed 时查错误日志
-lark-cli apps +publish-error-log --app-id app_xxx --instance-id pipeline_task_yyy --format table
+lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --format table
 ```
 
-把 `error_jobs[].errorMsg` 转述给用户：
+把 `error_logs[].errorLog` 转述给用户：
 
-> 发布失败，组件 `{componentName}` 报错：{errorMsg}
+> 发布失败，步骤 `{step}` 报错：{errorLog}
 
-### 场景 2：error_jobs 为空但 status=Failed
+### 场景 2：error_logs 为空但 status=Failed
 
-说明失败发生在 job 之前（如参数校验阶段），转述 `status_name` 给用户并建议检查发布配置。
+说明失败发生在步骤记录之前（如参数校验阶段），转述 `status_name` 给用户并建议检查发布配置。
 
 ## 协同命令
 
