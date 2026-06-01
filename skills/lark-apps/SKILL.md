@@ -30,6 +30,7 @@ lark-cli apps +access-scope-set --app-id app_xxx --scope tenant
 4. **发布 HTML / PPT / 静态网站（`apps +html-publish`）** → 必读 [`lark-apps-html-publish.md`](references/lark-apps-html-publish.md)（`--path` 文件 vs 目录、tar.gz 打包不做过滤）
 5. **设置可用范围（`apps +access-scope-set`）** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md)（specific / public / tenant 三态互斥校验、targets JSON 结构）
 6. **查看当前可用范围（`apps +access-scope-get`）** → 必读 [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)（响应 scope 枚举 `All` / `Tenant` / `Range` 与 CLI 的 `public` / `tenant` / `specific` 映射；含 jq 复制 scope 配置示例）
+7. **发布管理（`apps +publish` / `+publish-history` / `+publish-status` / `+publish-error-log`）** → 必读对应参考文档：[`lark-apps-publish.md`](references/lark-apps-publish.md)、[`lark-apps-publish-history.md`](references/lark-apps-publish-history.md)、[`lark-apps-publish-status.md`](references/lark-apps-publish-status.md)、[`lark-apps-publish-error-log.md`](references/lark-apps-publish-error-log.md)。⚠️ 发布管理 4 命令的上游接口尚未上 OpenAPI 网关，当前仅 `--dry-run` 可用，真实调用返回 unavailable（exit 1）；网关部署后启用。
 
 **未读完以上文件就执行相应操作会导致参数选择错误、互斥违反或文件被错误打包。**
 
@@ -113,3 +114,7 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 | [`+access-scope-set`](references/lark-apps-access-scope-set.md) | 设置应用可用范围（specific / public / tenant，三态互斥校验） |
 | [`+access-scope-get`](references/lark-apps-access-scope-get.md) | 查看应用当前可用范围（响应 scope 枚举 `All` / `Tenant` / `Range`；可作"备份 / 复制 scope 配置"前置读） |
 | [`+html-publish`](references/lark-apps-html-publish.md) | **把本地 HTML 文件 / 目录 / PPT / 静态网站部署为可分享的妙搭应用，返回访问 URL**（用户明示部署 / 分享时直接调；仅说"可演示"时先问用户是否要部署再调） |
+| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布单（release），触发发布流水线；成功返回 `instance_id` 供后续轮询 |
+| [`+publish-history`](references/lark-apps-publish-history.md) | 分页查询应用发布历史（`--limit 1-500`，省略则用服务端默认约 50 条；`--page-token` 翻页） |
+| [`+publish-status`](references/lark-apps-publish-status.md) | 查单个发布实例状态 / 详情（需 `--instance-id`；`status_name=Failed` 时转用 `+publish-error-log`） |
+| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 获取失败发布实例的错误日志，列出失败 job 及 `errorMsg`（需 `--instance-id`） |
