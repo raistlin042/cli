@@ -6,14 +6,22 @@ package apps
 import "testing"
 
 func TestBuildHistoryBody(t *testing.T) {
-	b := buildHistoryBody("app_x", 0, "")
+	// status and limit omitted when zero/empty
+	b := buildHistoryBody("app_x", "", 0, "")
+	if _, ok := b["status"]; ok {
+		t.Errorf("status should be omitted when empty, got %v", b)
+	}
 	if _, ok := b["limit"]; ok {
 		t.Errorf("limit should be omitted when 0, got %v", b)
 	}
 	if _, ok := b["pageToken"]; ok {
 		t.Errorf("pageToken should be omitted when empty, got %v", b)
 	}
-	b2 := buildHistoryBody("app_x", 30, "tok")
+	// status included when non-empty
+	b2 := buildHistoryBody("app_x", "finished", 30, "tok")
+	if b2["status"] != "finished" {
+		t.Errorf("status = %v, want finished", b2["status"])
+	}
 	if b2["limit"] != 30 || b2["pageToken"] != "tok" {
 		t.Errorf("body = %v", b2)
 	}

@@ -62,11 +62,13 @@ var AppsPublish = common.Shortcut{
 			return err
 		}
 		releaseID := common.GetString(data, "releaseID")
+		status := common.GetString(data, "status")
 		out := map[string]interface{}{
 			"release_id": releaseID,
+			"status":     status,
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "release_id: %s\n", releaseID)
+			fmt.Fprintf(w, "release_id: %s\nstatus: %s\n", releaseID, status)
 		})
 		return nil
 	},

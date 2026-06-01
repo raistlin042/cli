@@ -65,7 +65,7 @@ var AppsPublishErrorLog = common.Shortcut{
 		}
 		out := shapeErrorLog(data)
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "status: %v\n", out["status_name"])
+			fmt.Fprintf(w, "status: %v\n", out["status"])
 			logs, _ := out["error_logs"].([]interface{})
 			rows := make([]map[string]interface{}, 0, len(logs))
 			for _, l := range logs {
@@ -85,12 +85,9 @@ var AppsPublishErrorLog = common.Shortcut{
 }
 
 // shapeErrorLog maps the upstream error-log response into the CLI envelope:
-// adds status_name and normalises errorLogs -> error_logs.
+// status is a string passthrough; normalises errorLogs -> error_logs.
 func shapeErrorLog(data map[string]interface{}) map[string]interface{} {
-	out := map[string]interface{}{
-		"status":      data["status"],
-		"status_name": releaseStatusName(toInt(data["status"])),
-	}
+	out := map[string]interface{}{"status": data["status"]}
 	if logs, ok := data["errorLogs"]; ok {
 		out["error_logs"] = logs
 	} else {

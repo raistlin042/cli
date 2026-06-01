@@ -4,9 +4,6 @@
 package apps
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/larksuite/cli/internal/output"
 )
 
@@ -23,7 +20,8 @@ const publishAPIWired = false
 // TODO(apps-publish): replace with the real OpenAPI gateway paths once known.
 // Left empty on purpose — do NOT fabricate gateway addresses. These are only
 // referenced by Execute, which never runs while publishAPIWired == false.
-// Upstream RPC references (PSM lark.apaas.devops v1.0.381, NOT gateway paths):
+// Upstream RPC references (PSM lark.apaas.devops v1.0.385, NOT gateway paths):
+// status is a string: "publishing" | "finished" | "failed" (was int enum pre-v1.0.385).
 //
 //	create     rpc OpenAPICreateRelease    (endpoint 4177527)
 //	list       rpc OpenAPIListReleases     (endpoint 4177529)
@@ -63,53 +61,4 @@ func ensurePublishWired() error {
 	return output.ErrWithHint(output.ExitAPI, "unavailable",
 		"apps publish endpoints are not yet deployed to the OpenAPI gateway",
 		"this feature is not available yet — use --dry-run to preview the request; it will be enabled once the endpoint is deployed")
-}
-
-// releaseStatusName maps the upstream ReleaseStatus enum to a human-readable name.
-// Mirrors lark.apaas.devops ReleaseStatus (v1.0.381).
-func releaseStatusName(n int) string {
-	switch n {
-	case 0:
-		return "Unspecified"
-	case 1:
-		return "Publishing"
-	case 2:
-		return "Finished"
-	case 3:
-		return "Failed"
-	case 4:
-		return "Canceled"
-	case 5:
-		return "Rollback"
-	default:
-		return fmt.Sprintf("Unknown(%d)", n)
-	}
-}
-
-// toInt coerces a JSON-decoded numeric value (float64 / json.Number / int) to int.
-func toInt(v interface{}) int {
-	switch n := v.(type) {
-	case float64:
-		return int(n)
-	case int:
-		return n
-	case int64:
-		return int(n)
-	case json.Number:
-		i, _ := n.Int64()
-		return int(i)
-	default:
-		return 0
-	}
-}
-
-// injectStatusName adds a "status_name" field next to a numeric "status" field.
-// No-op when m is nil or has no "status" key.
-func injectStatusName(m map[string]interface{}) {
-	if m == nil {
-		return
-	}
-	if s, ok := m["status"]; ok {
-		m["status_name"] = releaseStatusName(toInt(s))
-	}
 }

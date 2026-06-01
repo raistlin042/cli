@@ -65,12 +65,11 @@ var AppsPublishStatus = common.Shortcut{
 		}
 		out := data
 		if release, ok := data["release"].(map[string]interface{}); ok {
-			injectStatusName(release)
 			out = release
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
 			fmt.Fprintf(w, "releaseID: %v\nstatus: %v\ncreatedAt: %v\nupdatedAt: %v\n",
-				out["releaseID"], out["status_name"], out["createdAt"], out["updatedAt"])
+				out["releaseID"], out["status"], out["createdAt"], out["updatedAt"])
 		})
 		return nil
 	},
