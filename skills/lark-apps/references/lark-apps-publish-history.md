@@ -1,0 +1,134 @@
+# apps +publish-history
+
+> **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
+
+分页查询指定妙搭应用的发布历史，结果按最新发布排在最前。
+
+> **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
+
+## 命令
+
+```bash
+# 查询发布历史（服务端默认约 50 条）
+lark-cli apps +publish-history --app-id app_xxx
+
+# 表格视图
+lark-cli apps +publish-history --app-id app_xxx --format table
+
+# 翻页（用上一页响应的 next_page_token）
+lark-cli apps +publish-history --app-id app_xxx --page-token eyJxxx
+
+# 指定返回条数（仅在需要不同页大小时才传）
+lark-cli apps +publish-history --app-id app_xxx --limit 10
+
+# 预演（当前可用）
+lark-cli apps +publish-history --app-id app_xxx --dry-run
+```
+
+## 参数
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `--app-id <id>` | ✅ | 应用 ID |
+| `--limit <n>` | ❌ | 每页条数，范围 1–500；**不传则使用服务端默认（约 50 条）——通常应省略此参数，除非需要特定页大小或分页** |
+| `--page-token <token>` | ❌ | 上一页响应的 `next_page_token`，用于翻页 |
+
+## 返回值
+
+**成功（网关就绪后）：**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "instances": [
+      {
+        "ID": "pipeline_task_yyy",
+        "status": 3,
+        "status_name": "Success",
+        "appID": "app_xxx",
+        "creator": "user_zzz",
+        "createdAt": 1748000000,
+        "updatedAt": 1748000120
+      }
+    ],
+    "next_page_token": "eyJxxx",
+    "has_more": false
+  }
+}
+```
+
+**`--format table` 视图（网关就绪后）：**
+
+```
+ID                    status_name  creator   createdAt
+pipeline_task_yyy     Success      user_zzz  1748000000
+```
+
+**接口未上线（当前行为）：**
+
+```json
+{
+  "ok": false,
+  "error": {
+    "type": "unavailable",
+    "message": "apps publish endpoints are not yet deployed to the OpenAPI gateway",
+    "hint": "..."
+  }
+}
+```
+
+## 字段语义
+
+| 字段 | 含义 |
+|---|---|
+| `instances[].ID` | 发布实例 ID，即 `+publish-status` / `+publish-error-log` 的 `--instance-id` |
+| `instances[].status` | NodeStatus 整数（见下表） |
+| `instances[].status_name` | NodeStatus 可读名称 |
+| `instances[].createdAt` / `updatedAt` | Unix 秒时间戳（不做时区格式化）|
+| `next_page_token` | 下一页游标；`has_more=false` 时忽略 |
+| `has_more` | 是否还有更多页 |
+
+### NodeStatus 枚举
+
+| 值 | 名称 |
+|---|---|
+| 0 | Unspecified |
+| 1 | ToDo |
+| 2 | Running |
+| 3 | Success |
+| 4 | Failed |
+| 5 | Canceled |
+| 6 | HoldOn |
+
+## 典型场景
+
+### 场景 1：查看最近发布记录
+
+```bash
+lark-cli apps +publish-history --app-id app_xxx --format table
+```
+
+返回后，找到目标发布实例的 `ID`，再用 `+publish-status` 查详情。
+
+### 场景 2：翻页查询
+
+```bash
+# 第一页
+lark-cli apps +publish-history --app-id app_xxx
+# 第二页（用上一页的 next_page_token）
+lark-cli apps +publish-history --app-id app_xxx --page-token eyJxxx
+```
+
+## 协同命令
+
+| 场景 | 命令 |
+|---|---|
+| 触发新发布 | `apps +publish` |
+| 查单个发布状态 | `apps +publish-status` |
+| 查发布错误日志 | `apps +publish-error-log` |
+
+## 参考
+
+- [lark-apps](../SKILL.md)
+- [lark-shared](../../lark-shared/SKILL.md)
