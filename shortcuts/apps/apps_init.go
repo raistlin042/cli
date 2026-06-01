@@ -38,8 +38,13 @@ var AppsInit = common.Shortcut{
 	Command:     "+init",
 	Description: "Initialize a Miaoda app's local development repository",
 	Risk:        "write",
-	AuthTypes:   []string{"user"},
-	HasFormat:   true,
+	// +init makes no direct lark API calls (it shells out to the
+	// +git-credential-init subprocess, which enforces its own scopes), so it
+	// declares no scopes of its own. Explicit []string{} (not nil) per the
+	// convention enforced by TestAllShortcutsScopesNotNil.
+	Scopes:    []string{},
+	AuthTypes: []string{"user"},
+	HasFormat: true,
 	Flags: []common.Flag{
 		// NOTE: --app-id is intentionally NOT Required:true. The framework maps
 		// Required:true to cobra's MarkFlagRequired, whose error is plain-text
