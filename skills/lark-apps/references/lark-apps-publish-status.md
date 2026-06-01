@@ -6,6 +6,8 @@
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
+> **⚠️ 注意：** 这里的「实例号 / 流水线实例号」是妙搭**发布实例** ID（`apps +publish` 返回的 `instance_id`），**不是飞书审批实例号**。查发布进度用 `apps +publish-status`、查失败原因用 `apps +publish-error-log`；不要路由到 lark-approval / 审批相关命令。
+
 ## 命令
 
 ```bash
