@@ -35,7 +35,7 @@ func (execCommandRunner) Run(ctx context.Context, dir, name string, args ...stri
 
 // credentialURLRe matches the userinfo segment of an http(s) URL (the
 // "user:token@" part) so it can be redacted before any output or logging.
-var credentialURLRe = regexp.MustCompile(`((?:https?)://)[^/@\s]+@`)
+var credentialURLRe = regexp.MustCompile(`(?i)(https?://)[^/@\s]+@`)
 
 // redactURLCredentials replaces the userinfo segment of any http(s) URL in s
 // with "***". Safe to call on both a bare repo_url and free-form text such as

@@ -13,6 +13,7 @@ func TestRedactURLCredentials(t *testing.T) {
 		{"embedded in stderr text", "fatal: unable to access 'http://u:t@h/r.git/': 401", "fatal: unable to access 'http://***@h/r.git/': 401"},
 		{"empty", "", ""},
 		{"non-url unchanged", "some error message", "some error message"},
+		{"uppercase scheme", "HTTP://u:t@h/r.git", "HTTP://***@h/r.git"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
