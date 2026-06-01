@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-func TestNodeStatusName(t *testing.T) {
+func TestReleaseStatusName(t *testing.T) {
 	cases := map[int]string{
-		0: "Unspecified", 1: "ToDo", 2: "Running", 3: "Success",
-		4: "Failed", 5: "Canceled", 6: "HoldOn", 99: "Unknown(99)",
+		0: "Unspecified", 1: "Publishing", 2: "Finished", 3: "Failed",
+		4: "Canceled", 5: "Rollback", 99: "Unknown(99)",
 	}
 	for in, want := range cases {
-		if got := nodeStatusName(in); got != want {
-			t.Errorf("nodeStatusName(%d) = %q, want %q", in, got, want)
+		if got := releaseStatusName(in); got != want {
+			t.Errorf("releaseStatusName(%d) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -31,7 +31,7 @@ func TestEnsurePublishWired_NotDeployed(t *testing.T) {
 }
 
 func TestInjectStatusName(t *testing.T) {
-	m := map[string]interface{}{"status": float64(4)}
+	m := map[string]interface{}{"status": float64(3)}
 	injectStatusName(m)
 	if m["status_name"] != "Failed" {
 		t.Errorf("status_name = %v, want Failed", m["status_name"])
@@ -45,9 +45,9 @@ func TestInjectStatusName(t *testing.T) {
 }
 
 func TestInjectStatusName_JSONNumber(t *testing.T) {
-	m := map[string]interface{}{"status": json.Number("3")}
+	m := map[string]interface{}{"status": json.Number("2")}
 	injectStatusName(m)
-	if m["status_name"] != "Success" {
-		t.Errorf("json.Number path: status_name = %v, want Success", m["status_name"])
+	if m["status_name"] != "Finished" {
+		t.Errorf("json.Number path: status_name = %v, want Finished", m["status_name"])
 	}
 }

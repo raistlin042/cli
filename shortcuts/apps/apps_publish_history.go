@@ -16,8 +16,9 @@ import (
 
 // AppsPublishHistory lists a Miaoda app's release history (most recent first).
 //
-// NOTE: upstream endpoint (BAM 4073969) not yet on the OpenAPI gateway; Execute
-// gated by ensurePublishWired(). See apps_publish_common.go.
+// NOTE: upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPIListReleases,
+// endpoint 4177529) not yet on the OpenAPI gateway; Execute gated by
+// ensurePublishWired(). See apps_publish_common.go.
 var AppsPublishHistory = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish-history",
@@ -40,11 +41,12 @@ var AppsPublishHistory = common.Shortcut{
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		dry := common.NewDryRunAPI()
-		dry.POST(fmt.Sprintf(upstreamHistoryPath, validate.EncodePathSegment(appID))).
-			Desc("List release history — NOT YET ON OPENAPI GATEWAY (upstream PSM path shown; real call returns 'unavailable' until publishAPIWired=true)").
-			Body(buildHistoryBody(appID, rctx.Int("limit"), strings.TrimSpace(rctx.Str("page-token"))))
+		dry.Desc("List release history — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
+		dry.Set("psm", "lark.apaas.devops")
+		dry.Set("rpc_method", rpcListReleases)
+		dry.Set("request", buildHistoryBody(appID, rctx.Int("limit"), strings.TrimSpace(rctx.Str("page-token"))))
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; url is the upstream PSM reference, not a gateway path")
+		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -58,24 +60,24 @@ var AppsPublishHistory = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		instances, _ := data["instances"].([]interface{})
-		for _, it := range instances {
+		releases, _ := data["releases"].([]interface{})
+		for _, it := range releases {
 			if m, ok := it.(map[string]interface{}); ok {
 				injectStatusName(m)
 			}
 		}
 		rctx.OutFormat(data, nil, func(w io.Writer) {
-			rows := make([]map[string]interface{}, 0, len(instances))
-			for _, it := range instances {
+			rows := make([]map[string]interface{}, 0, len(releases))
+			for _, it := range releases {
 				m, ok := it.(map[string]interface{})
 				if !ok {
 					continue
 				}
 				rows = append(rows, map[string]interface{}{
-					"ID":          m["ID"],
+					"releaseID":   m["releaseID"],
 					"status_name": m["status_name"],
-					"creator":     m["creator"],
 					"createdAt":   m["createdAt"],
+					"updatedAt":   m["updatedAt"],
 				})
 			}
 			output.PrintTable(w, rows)

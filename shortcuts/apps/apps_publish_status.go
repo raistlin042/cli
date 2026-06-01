@@ -14,40 +14,42 @@ import (
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
-// AppsPublishStatus fetches a single release instance's detail by instance ID.
+// AppsPublishStatus fetches a single release's detail by release ID.
 //
-// NOTE: upstream endpoint (BAM 4073971) not yet on the OpenAPI gateway; Execute
-// gated by ensurePublishWired(). See apps_publish_common.go.
+// NOTE: upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPIGetRelease,
+// endpoint 4177526) not yet on the OpenAPI gateway; Execute gated by
+// ensurePublishWired(). See apps_publish_common.go.
 var AppsPublishStatus = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish-status",
-	Description: "Get a single release's status/detail by instance ID",
+	Description: "Get a single release's status/detail by release ID",
 	Risk:        "read",
 	Scopes:      []string{"spark:app:read"},
 	AuthTypes:   []string{"user"},
 	HasFormat:   true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "Miaoda app ID", Required: true},
-		{Name: "instance-id", Desc: "release instance ID (the instance_id returned by +publish)", Required: true},
+		{Name: "release-id", Desc: "release ID (the release_id returned by +publish)", Required: true},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
 			return output.ErrValidation("--app-id is required")
 		}
-		if strings.TrimSpace(rctx.Str("instance-id")) == "" {
-			return output.ErrValidation("--instance-id is required")
+		if strings.TrimSpace(rctx.Str("release-id")) == "" {
+			return output.ErrValidation("--release-id is required")
 		}
 		return nil
 	},
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
-		instanceID := strings.TrimSpace(rctx.Str("instance-id"))
+		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
-		dry.GET(fmt.Sprintf(upstreamStatusPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(instanceID))).
-			Desc("Get release detail — NOT YET ON OPENAPI GATEWAY (upstream PSM path shown; real call returns 'unavailable' until publishAPIWired=true)").
-			Params(map[string]interface{}{"instanceID": instanceID})
+		dry.Desc("Get release detail — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
+		dry.Set("psm", "lark.apaas.devops")
+		dry.Set("rpc_method", rpcGetRelease)
+		dry.Set("request", map[string]interface{}{"appID": appID, "releaseID": releaseID})
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; url is the upstream PSM reference, not a gateway path")
+		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -55,21 +57,20 @@ var AppsPublishStatus = common.Shortcut{
 			return err
 		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
-		instanceID := strings.TrimSpace(rctx.Str("instance-id"))
-		path := fmt.Sprintf(publishStatusPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(instanceID))
-		params := map[string]interface{}{"instanceID": instanceID}
-		data, err := rctx.CallAPI("GET", path, params, nil)
+		releaseID := strings.TrimSpace(rctx.Str("release-id"))
+		path := fmt.Sprintf(publishStatusPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
+		data, err := rctx.CallAPI("GET", path, map[string]interface{}{"appID": appID, "releaseID": releaseID}, nil)
 		if err != nil {
 			return err
 		}
 		out := data
-		if instance, ok := data["instance"].(map[string]interface{}); ok {
-			injectStatusName(instance)
-			out = instance
+		if release, ok := data["release"].(map[string]interface{}); ok {
+			injectStatusName(release)
+			out = release
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "ID: %v\nstatus: %v\nappID: %v\ncreator: %v\ncreatedAt: %v\nupdatedAt: %v\n",
-				out["ID"], out["status_name"], out["appID"], out["creator"], out["createdAt"], out["updatedAt"])
+			fmt.Fprintf(w, "releaseID: %v\nstatus: %v\ncreatedAt: %v\nupdatedAt: %v\n",
+				out["releaseID"], out["status_name"], out["createdAt"], out["updatedAt"])
 		})
 		return nil
 	},

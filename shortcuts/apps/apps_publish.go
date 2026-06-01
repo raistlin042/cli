@@ -16,13 +16,14 @@ import (
 
 // AppsPublish creates a release for a Miaoda app.
 //
-// NOTE: the upstream endpoint (BAM 4070318, lark.apaas.devops) is not yet on
-// the OpenAPI gateway. Execute is gated by ensurePublishWired(); only --dry-run
-// works until publishAPIWired flips. See apps_publish_common.go.
+// NOTE: the upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPICreateRelease,
+// endpoint 4177527) is not yet on the OpenAPI gateway. Execute is gated by
+// ensurePublishWired(); only --dry-run works until publishAPIWired flips.
+// See apps_publish_common.go.
 var AppsPublish = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish",
-	Description: "Create a release for a Miaoda app (returns instance_id for status polling)",
+	Description: "Create a release for a Miaoda app (returns release_id for status polling)",
 	Risk:        "write",
 	Scopes:      []string{"spark:app:write"},
 	AuthTypes:   []string{"user"},
@@ -41,11 +42,12 @@ var AppsPublish = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		branch := strings.TrimSpace(rctx.Str("branch"))
 		dry := common.NewDryRunAPI()
-		dry.POST(fmt.Sprintf(upstreamCreatePath, validate.EncodePathSegment(appID))).
-			Desc("Create release — NOT YET ON OPENAPI GATEWAY (upstream PSM path shown; real call returns 'unavailable' until publishAPIWired=true)").
-			Body(buildPublishBody(appID, branch))
+		dry.Desc("Create release — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
+		dry.Set("psm", "lark.apaas.devops")
+		dry.Set("rpc_method", rpcCreateRelease)
+		dry.Set("request", buildPublishBody(appID, branch))
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; url is the upstream PSM reference, not a gateway path")
+		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -59,13 +61,12 @@ var AppsPublish = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		taskID := common.GetString(data, "pipelineTaskID")
+		releaseID := common.GetString(data, "releaseID")
 		out := map[string]interface{}{
-			"instance_id":      taskID,
-			"pipeline_task_id": taskID,
+			"release_id": releaseID,
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "instance_id: %s\n", taskID)
+			fmt.Fprintf(w, "release_id: %s\n", releaseID)
 		})
 		return nil
 	},

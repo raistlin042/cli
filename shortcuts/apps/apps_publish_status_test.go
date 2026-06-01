@@ -12,12 +12,12 @@ func TestAppsPublishStatusMeta(t *testing.T) {
 	if len(AppsPublishStatus.Scopes) != 1 || AppsPublishStatus.Scopes[0] != "spark:app:read" {
 		t.Errorf("scopes = %v", AppsPublishStatus.Scopes)
 	}
-	// both --app-id and --instance-id must be required
+	// both --app-id and --release-id must be required
 	req := map[string]bool{}
 	for _, f := range AppsPublishStatus.Flags {
 		req[f.Name] = f.Required
 	}
-	if !req["app-id"] || !req["instance-id"] {
-		t.Errorf("app-id and instance-id must be Required; flags=%+v", AppsPublishStatus.Flags)
+	if !req["app-id"] || !req["release-id"] {
+		t.Errorf("app-id and release-id must be Required; flags=%+v", AppsPublishStatus.Flags)
 	}
 }

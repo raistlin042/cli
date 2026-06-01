@@ -10,12 +10,12 @@ import (
 	"github.com/larksuite/cli/internal/output"
 )
 
-// publishAPIWired reports whether the devops/pipeline publish endpoints have
-// been deployed to the OpenAPI gateway. While false, each command's Execute
-// returns a structured "unavailable" error and only --dry-run works.
+// publishAPIWired reports whether the devops publish endpoints have been
+// deployed to the OpenAPI gateway. While false, each command's Execute returns
+// a structured "unavailable" error and only --dry-run works.
 //
-// TODO(apps-publish): once lark.apaas.devops / lark.apaas.devops_platform are
-// exposed on the OpenAPI gateway, fill in the four gateway paths below and set
+// TODO(apps-publish): once lark.apaas.devops v1.0.381 RPC methods are exposed
+// on the OpenAPI gateway, fill in the four gateway paths below and set
 // publishAPIWired = true. The runtime guard (ensurePublishWired) deactivates
 // automatically once this flips.
 const publishAPIWired = false
@@ -23,12 +23,12 @@ const publishAPIWired = false
 // TODO(apps-publish): replace with the real OpenAPI gateway paths once known.
 // Left empty on purpose — do NOT fabricate gateway addresses. These are only
 // referenced by Execute, which never runs while publishAPIWired == false.
-// Upstream BAM references (NOT gateway paths):
+// Upstream RPC references (PSM lark.apaas.devops v1.0.381, NOT gateway paths):
 //
-//	create     POST /v1/devops/app/:appID/release                  (endpoint 4070318)
-//	history    POST /v1/pipeline/app/:appID/instance/list          (endpoint 4073969)
-//	status     GET  /v1/pipeline/app/:appID/instance/:id           (endpoint 4073971)
-//	error-log  GET  /v1/pipeline/app/:appID/instance/:id/error_log (endpoint 4073972)
+//	create     rpc OpenAPICreateRelease    (endpoint 4177527)
+//	list       rpc OpenAPIListReleases     (endpoint 4177529)
+//	get        rpc OpenAPIGetRelease       (endpoint 4177526)
+//	error-log  rpc OpenAPIGetReleaseErrorLogs (endpoint 4177528)
 //
 // Declared as var (not const) so go vet's printf analyzer does not flag the
 // fmt.Sprintf calls in Execute while these are empty TODO placeholders. Once a
@@ -41,14 +41,13 @@ var (
 	publishErrorLogPath = ""
 )
 
-// Upstream PSM reference paths shown in --dry-run output. These are the
-// documented upstream paths (from BAM), explicitly NOT gateway paths — dry-run
-// labels them as such via each command's Desc and gateway_status field.
+// RPC method names for lark.apaas.devops v1.0.381.
+// These are the upstream RPC method names shown in --dry-run output.
 const (
-	upstreamCreatePath   = "/v1/devops/app/%s/release"
-	upstreamHistoryPath  = "/v1/pipeline/app/%s/instance/list"
-	upstreamStatusPath   = "/v1/pipeline/app/%s/instance/%s"
-	upstreamErrorLogPath = "/v1/pipeline/app/%s/instance/%s/error_log"
+	rpcCreateRelease       = "OpenAPICreateRelease"
+	rpcGetRelease          = "OpenAPIGetRelease"
+	rpcListReleases        = "OpenAPIListReleases"
+	rpcGetReleaseErrorLogs = "OpenAPIGetReleaseErrorLogs"
 )
 
 // ensurePublishWired is the Execute-time guard. While the endpoints are not on
@@ -60,27 +59,25 @@ func ensurePublishWired() error {
 	}
 	return output.ErrWithHint(output.ExitAPI, "unavailable",
 		"apps publish endpoints are not yet deployed to the OpenAPI gateway",
-		"only --dry-run is available for now; once lark.apaas.devops / lark.apaas.devops_platform are exposed, fill the gateway paths in apps_publish_common.go and set publishAPIWired=true")
+		"only --dry-run is available for now; once lark.apaas.devops v1.0.381 RPC methods are exposed on the gateway, fill the gateway paths in apps_publish_common.go and set publishAPIWired=true")
 }
 
-// nodeStatusName maps the upstream NodeStatus enum to a human-readable name.
-// Mirrors devops_platform/common/common.NodeStatus (BAM v1.0.293).
-func nodeStatusName(n int) string {
+// releaseStatusName maps the upstream ReleaseStatus enum to a human-readable name.
+// Mirrors lark.apaas.devops ReleaseStatus (v1.0.381).
+func releaseStatusName(n int) string {
 	switch n {
 	case 0:
 		return "Unspecified"
 	case 1:
-		return "ToDo"
+		return "Publishing"
 	case 2:
-		return "Running"
+		return "Finished"
 	case 3:
-		return "Success"
-	case 4:
 		return "Failed"
-	case 5:
+	case 4:
 		return "Canceled"
-	case 6:
-		return "HoldOn"
+	case 5:
+		return "Rollback"
 	default:
 		return fmt.Sprintf("Unknown(%d)", n)
 	}
@@ -110,6 +107,6 @@ func injectStatusName(m map[string]interface{}) {
 		return
 	}
 	if s, ok := m["status"]; ok {
-		m["status_name"] = nodeStatusName(toInt(s))
+		m["status_name"] = releaseStatusName(toInt(s))
 	}
 }
