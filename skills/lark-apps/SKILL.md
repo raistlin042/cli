@@ -80,7 +80,7 @@ lark-cli apps +session-read --session-id sess_xxx
 4. **云端会话开发** → 必读 [`lark-apps-cloud-dev.md`](references/lark-apps-cloud-dev.md)（session 生命周期、chat、附件、轮询拿状态）
 5. **创建 / 更新 / 列出应用** → 必读 [`lark-apps-create.md`](references/lark-apps-create.md) / [`lark-apps-update.md`](references/lark-apps-update.md)
 6. **设置 / 查看可用范围** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md) / [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)
-
+7. **初始化 / 查看 / 删除妙搭 Git 凭证（`apps +git-credential-init` / `apps +git-credential-list` / `apps +git-credential-remove`）** → 必读 [`lark-apps-git-credential.md`](references/lark-apps-git-credential.md)（只处理 Git credential，不与 setup / env pull 混用；输出 Repository URL 后继续用原生 Git；list 会自动扫描本地所有 app 配置，不需要 `--app-id`）
 ## 身份与一次性授权
 
 妙搭应用是用户的个人资产，**统一使用 `--as user`**（默认 `--as auto` 会按 shortcut 声明落到 user）。

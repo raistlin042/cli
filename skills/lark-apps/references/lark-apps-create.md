@@ -80,7 +80,7 @@ lark-cli apps +create --name "Demo" --app-type HTML --dry-run
 | 需要后端能力：数据库 / 登录鉴权 / API / 表单存储 / 用户系统 / 增删改查 / 持久化 / 多人协作 / "全栈" / "带后台" | 全栈应用 | `fullstack` |
 | 模糊不清、无明显信号 | 默认 `HTML`（更轻、现有成熟流程），必要时追问一句澄清 | `HTML` |
 
-判定为 fullstack 后：`--message` 取用户需求的**原话原文**。开发方式（本地 vs 云端）是另一维度，正交、不可从需求推断——见 [`../SKILL.md`](../SKILL.md)「输入模糊」。
+判定类型后：从用户的自然语言输入**生成**一个简洁的 `name` 和一句 `description`，通过 `--name` / `--description` 传入（HTML 与 fullstack 都适用），不要求用户显式给出应用名。
 
 ## 典型场景
 
