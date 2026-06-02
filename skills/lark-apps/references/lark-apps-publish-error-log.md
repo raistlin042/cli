@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status=failed` 后调用，定位失败根因。
+获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status=failed` 后调用，定位失败根因。对应 `GET /open-apis/spark/v1/apps/:app_id/releases/:release_id/error_logs`。
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
@@ -40,7 +40,7 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry
     "error_logs": [
       {
         "step": "frontend-build",
-        "errorLog": "dependency conflict: react@18 vs react@17"
+        "error_log": "dependency conflict: react@18 vs react@17"
       }
     ]
   }
@@ -52,7 +52,7 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry
 ```
 status: Failed
 
-step             errorLog
+step             error_log
 frontend-build   dependency conflict: react@18 vs react@17
 ```
 
@@ -85,7 +85,7 @@ frontend-build   dependency conflict: react@18 vs react@17
 | `status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
 | `error_logs` | 失败步骤列表；若无失败记录则为空数组 `[]` |
 | `error_logs[].step` | 失败步骤名 |
-| `error_logs[].errorLog` | 错误日志，**转述给用户帮助定位问题** |
+| `error_logs[].error_log` | 错误日志，**转述给用户帮助定位问题** |
 
 ## 典型场景
 
@@ -98,9 +98,9 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy
 lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --format table
 ```
 
-把 `error_logs[].errorLog` 转述给用户：
+把 `error_logs[].error_log` 转述给用户：
 
-> 发布失败，步骤 `{step}` 报错：{errorLog}
+> 发布失败，步骤 `{step}` 报错：{error_log}
 
 ### 场景 2：error_logs 为空但 status=failed
 

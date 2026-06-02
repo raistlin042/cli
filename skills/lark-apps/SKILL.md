@@ -117,4 +117,4 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 | [`+publish`](references/lark-apps-publish.md) | 为应用创建发布（release），触发发布流水线；成功返回 `{ release_id, status: "publishing" }` 供后续轮询 |
 | [`+publish-history`](references/lark-apps-publish-history.md) | 分页查询应用发布历史（`--limit 1-500`，省略则用服务端默认约 50 条；`--page-token` 翻页；`--status publishing\|finished\|failed` 按状态过滤） |
 | [`+publish-status`](references/lark-apps-publish-status.md) | 查单个发布状态 / 详情（需 `--release-id`；`status=failed` 时转用 `+publish-error-log`） |
-| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 获取失败发布的错误日志，列出失败步骤及 `errorLog`（需 `--release-id`） |
+| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 获取失败发布的错误日志，列出失败步骤及 `error_log`（需 `--release-id`） |

@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-分页查询指定妙搭应用的发布历史，结果按最新发布排在最前。
+分页查询指定妙搭应用的发布历史，结果按最新发布排在最前。对应 `GET /open-apis/spark/v1/apps/:app_id/releases`，`--status` / `--limit` / `--page-token` 均映射为 HTTP query 参数。
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
@@ -47,10 +47,10 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
   "data": {
     "releases": [
       {
-        "releaseID": "release_yyy",
+        "release_id": "release_yyy",
         "status": "finished",
-        "createdAt": 1748000000000,
-        "updatedAt": 1748000120000
+        "created_at": 1748000000000,
+        "updated_at": 1748000120000
       }
     ],
     "next_page_token": "eyJxxx",
@@ -62,7 +62,7 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 **`--format table` 视图（网关就绪后）：**
 
 ```
-releaseID     status    createdAt         updatedAt
+release_id    status    created_at        updated_at
 release_yyy   finished  1748000000000     1748000120000
 ```
 
@@ -83,9 +83,9 @@ release_yyy   finished  1748000000000     1748000120000
 
 | 字段 | 含义 |
 |---|---|
-| `releases[].releaseID` | 发布ID，即 `+publish-status` / `+publish-error-log` 的 `--release-id` |
+| `releases[].release_id` | 发布ID，即 `+publish-status` / `+publish-error-log` 的 `--release-id` |
 | `releases[].status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
-| `releases[].createdAt` / `updatedAt` | Unix 毫秒时间戳（不做时区格式化）|
+| `releases[].created_at` / `updated_at` | Unix 毫秒时间戳（不做时区格式化）|
 | `next_page_token` | 下一页游标；`has_more=false` 时忽略 |
 | `has_more` | 是否还有更多页 |
 
@@ -97,7 +97,7 @@ release_yyy   finished  1748000000000     1748000120000
 lark-cli apps +publish-history --app-id app_xxx --format table
 ```
 
-返回后，找到目标发布的 `releaseID`，再用 `+publish-status` 查详情。
+返回后，找到目标发布的 `release_id`，再用 `+publish-status` 查详情。
 
 ### 场景 2：翻页查询
 
@@ -114,7 +114,7 @@ lark-cli apps +publish-history --app-id app_xxx --page-token eyJxxx
 lark-cli apps +publish-history --app-id app_xxx --status failed --format table
 ```
 
-找到目标 `releaseID` 后，用 `+publish-error-log` 查失败根因。
+找到目标 `release_id` 后，用 `+publish-error-log` 查失败根因。
 
 ## 协同命令
 

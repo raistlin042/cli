@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-查询指定发布的状态和详情。通常在触发 `apps +publish` 后，用返回的 `release_id` 轮询进度。
+查询指定发布的状态和详情。通常在触发 `apps +publish` 后，用返回的 `release_id` 轮询进度。对应 `GET /open-apis/spark/v1/apps/:app_id/releases/:release_id`。
 
 > **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
 
@@ -34,10 +34,10 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
   "ok": true,
   "data": {
     "release": {
-      "releaseID": "release_yyy",
+      "release_id": "release_yyy",
       "status": "finished",
-      "createdAt": 1748000000000,
-      "updatedAt": 1748000120000
+      "created_at": 1748000000000,
+      "updated_at": 1748000120000
     }
   }
 }
@@ -70,7 +70,7 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
 | 字段 | 含义 |
 |---|---|
 | `release.status` | 发布状态字符串：`publishing`（进行中）/ `finished`（成功）/ `failed`（失败）|
-| `release.createdAt` / `updatedAt` | Unix 毫秒时间戳（不做时区格式化）|
+| `release.created_at` / `updated_at` | Unix 毫秒时间戳（不做时区格式化）|
 
 ## 典型场景
 

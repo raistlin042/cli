@@ -52,7 +52,7 @@ lark-cli apps +publish --app-id app_xxx --dry-run
   "error": {
     "type": "unavailable",
     "message": "apps publish endpoints are not yet deployed to the OpenAPI gateway",
-    "hint": "fill the gateway paths in apps_publish_common.go and set publishAPIWired=true once the gateway exposes lark.apaas.devops / lark.apaas.devops_platform"
+    "hint": "endpoint POST /open-apis/spark/v1/apps/:app_id/releases is not yet deployed to the gateway; use --dry-run to preview the request"
   }
 }
 ```
@@ -73,11 +73,14 @@ lark-cli apps +publish --app-id app_xxx --dry-run
   "ok": true,
   "data": {
     "dry_run": true,
-    "psm": "lark.apaas.devops",
-    "rpc_method": "OpenAPICreateRelease",
-    "request": { "appID": "app_xxx" },
-    "gateway_status": "not_deployed",
-    "note": "upstream PSM reference path (lark.apaas.devops); gateway path TBD"
+    "api": [
+      {
+        "method": "POST",
+        "url": "/open-apis/spark/v1/apps/app_xxx/releases",
+        "body": { "branch": "main" }
+      }
+    ],
+    "gateway_status": "not_deployed"
   }
 }
 ```
