@@ -44,12 +44,9 @@ var AppsPublishStatus = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
-		dry.Desc("Get release detail — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
-		dry.Set("psm", "lark.apaas.devops")
-		dry.Set("rpc_method", rpcGetRelease)
-		dry.Set("request", map[string]interface{}{"appID": appID, "releaseID": releaseID})
+		dry.GET(fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
+			Desc("Get release detail — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')")
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -58,8 +55,8 @@ var AppsPublishStatus = common.Shortcut{
 		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
-		path := fmt.Sprintf(publishStatusPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
-		data, err := rctx.CallAPI("GET", path, map[string]interface{}{"appID": appID, "releaseID": releaseID}, nil)
+		path := fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
+		data, err := rctx.CallAPI("GET", path, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -68,8 +65,8 @@ var AppsPublishStatus = common.Shortcut{
 			out = release
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "releaseID: %v\nstatus: %v\ncreatedAt: %v\nupdatedAt: %v\n",
-				out["releaseID"], out["status"], out["createdAt"], out["updatedAt"])
+			fmt.Fprintf(w, "release_id: %v\nstatus: %v\ncreated_at: %v\nupdated_at: %v\n",
+				out["release_id"], out["status"], out["created_at"], out["updated_at"])
 		})
 		return nil
 	},

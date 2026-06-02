@@ -44,12 +44,9 @@ var AppsPublishErrorLog = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
-		dry.Desc("Get release error log — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
-		dry.Set("psm", "lark.apaas.devops")
-		dry.Set("rpc_method", rpcGetReleaseErrorLogs)
-		dry.Set("request", map[string]interface{}{"appID": appID, "releaseID": releaseID})
+		dry.GET(fmt.Sprintf(publishErrorLogPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
+			Desc("Get release error log — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')")
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -59,7 +56,7 @@ var AppsPublishErrorLog = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		path := fmt.Sprintf(publishErrorLogPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
-		data, err := rctx.CallAPI("GET", path, map[string]interface{}{"appID": appID, "releaseID": releaseID}, nil)
+		data, err := rctx.CallAPI("GET", path, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -74,8 +71,8 @@ var AppsPublishErrorLog = common.Shortcut{
 					continue
 				}
 				rows = append(rows, map[string]interface{}{
-					"step":     m["step"],
-					"errorLog": m["errorLog"],
+					"step":      m["step"],
+					"error_log": m["error_log"],
 				})
 			}
 			output.PrintTable(w, rows)
@@ -84,11 +81,12 @@ var AppsPublishErrorLog = common.Shortcut{
 	},
 }
 
-// shapeErrorLog maps the upstream error-log response into the CLI envelope:
-// status is a string passthrough; normalises errorLogs -> error_logs.
+// shapeErrorLog shapes the error-log response into the CLI envelope.
+// status is a string passthrough; error_logs (snake_case from gateway) is
+// passed through directly, defaulting to an empty slice when absent.
 func shapeErrorLog(data map[string]interface{}) map[string]interface{} {
 	out := map[string]interface{}{"status": data["status"]}
-	if logs, ok := data["errorLogs"]; ok {
+	if logs, ok := data["error_logs"]; ok {
 		out["error_logs"] = logs
 	} else {
 		out["error_logs"] = []interface{}{}

@@ -11,41 +11,19 @@ import (
 // deployed to the OpenAPI gateway. While false, each command's Execute returns
 // a structured "unavailable" error and only --dry-run works.
 //
-// TODO(apps-publish): once lark.apaas.devops v1.0.381 RPC methods are exposed
-// on the OpenAPI gateway, fill in the four gateway paths below and set
-// publishAPIWired = true. The runtime guard (ensurePublishWired) deactivates
-// automatically once this flips.
+// Real gateway paths are known (see consts below). publishAPIWired stays false
+// until the endpoint is deployed. Flip to true is a 1-line change; Execute path
+// + request/response shapes are already correct against the final gateway def.
 const publishAPIWired = false
 
-// TODO(apps-publish): replace with the real OpenAPI gateway paths once known.
-// Left empty on purpose — do NOT fabricate gateway addresses. These are only
-// referenced by Execute, which never runs while publishAPIWired == false.
-// Upstream RPC references (PSM lark.apaas.devops v1.0.385, NOT gateway paths):
-// status is a string: "publishing" | "finished" | "failed" (was int enum pre-v1.0.385).
-//
-//	create     rpc OpenAPICreateRelease    (endpoint 4177527)
-//	list       rpc OpenAPIListReleases     (endpoint 4177529)
-//	get        rpc OpenAPIGetRelease       (endpoint 4177526)
-//	error-log  rpc OpenAPIGetReleaseErrorLogs (endpoint 4177528)
-//
-// Declared as var (not const) so go vet's printf analyzer does not flag the
-// fmt.Sprintf calls in Execute while these are empty TODO placeholders. Once a
-// real "/...%s..." gateway path is filled in (and publishAPIWired flips), the
-// fmt.Sprintf calls become exactly correct. See apps_publish_common.go header.
-var (
-	publishCreatePath   = ""
-	publishHistoryPath  = ""
-	publishStatusPath   = ""
-	publishErrorLogPath = ""
-)
-
-// RPC method names for lark.apaas.devops v1.0.381.
-// These are the upstream RPC method names shown in --dry-run output.
+// Real OpenAPI gateway paths for the apps publish endpoints.
+// Prefix reuses apiBasePath = "/open-apis/spark/v1" (same package).
+// Each path contains %s placeholders; use fmt.Sprintf to build the final URL.
 const (
-	rpcCreateRelease       = "OpenAPICreateRelease"
-	rpcGetRelease          = "OpenAPIGetRelease"
-	rpcListReleases        = "OpenAPIListReleases"
-	rpcGetReleaseErrorLogs = "OpenAPIGetReleaseErrorLogs"
+	publishCreatePath   = apiBasePath + "/apps/%s/releases"
+	publishGetPath      = apiBasePath + "/apps/%s/releases/%s"
+	publishErrorLogPath = apiBasePath + "/apps/%s/releases/%s/error_logs"
+	publishListPath     = apiBasePath + "/apps/%s/releases"
 )
 
 // ensurePublishWired is the Execute-time guard. While the endpoints are not on
@@ -55,9 +33,6 @@ func ensurePublishWired() error {
 	if publishAPIWired {
 		return nil
 	}
-	// User-facing hint stays in user language; the wiring detail (fill the
-	// gateway paths + flip publishAPIWired) lives in the publishAPIWired comment
-	// block above, where the maintainer who enables it will be looking.
 	return output.ErrWithHint(output.ExitAPI, "unavailable",
 		"apps publish endpoints are not yet deployed to the OpenAPI gateway",
 		"this feature is not available yet — use --dry-run to preview the request; it will be enabled once the endpoint is deployed")

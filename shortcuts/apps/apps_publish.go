@@ -42,12 +42,10 @@ var AppsPublish = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		branch := strings.TrimSpace(rctx.Str("branch"))
 		dry := common.NewDryRunAPI()
-		dry.Desc("Create release — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
-		dry.Set("psm", "lark.apaas.devops")
-		dry.Set("rpc_method", rpcCreateRelease)
-		dry.Set("request", buildPublishBody(appID, branch))
+		dry.POST(fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))).
+			Desc("Create release — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')").
+			Body(buildPublishBody(branch))
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -57,27 +55,25 @@ var AppsPublish = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		branch := strings.TrimSpace(rctx.Str("branch"))
 		path := fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))
-		data, err := rctx.CallAPI("POST", path, nil, buildPublishBody(appID, branch))
+		data, err := rctx.CallAPI("POST", path, nil, buildPublishBody(branch))
 		if err != nil {
 			return err
 		}
-		releaseID := common.GetString(data, "releaseID")
-		status := common.GetString(data, "status")
 		out := map[string]interface{}{
-			"release_id": releaseID,
-			"status":     status,
+			"release_id": common.GetString(data, "release_id"),
+			"status":     common.GetString(data, "status"),
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "release_id: %s\nstatus: %s\n", releaseID, status)
+			fmt.Fprintf(w, "release_id: %s\nstatus: %s\n", out["release_id"], out["status"])
 		})
 		return nil
 	},
 }
 
-// buildPublishBody builds the create-release request body. branch is omitted
-// when empty so the server applies its default.
-func buildPublishBody(appID, branch string) map[string]interface{} {
-	body := map[string]interface{}{"appID": appID}
+// buildPublishBody builds the create-release request body. app_id is in the
+// path, not the body. branch is included only when non-empty.
+func buildPublishBody(branch string) map[string]interface{} {
+	body := map[string]interface{}{}
 	if branch != "" {
 		body["branch"] = branch
 	}

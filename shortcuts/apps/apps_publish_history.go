@@ -41,13 +41,14 @@ var AppsPublishHistory = common.Shortcut{
 	},
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
+		status := strings.TrimSpace(rctx.Str("status"))
+		limit := rctx.Int("limit")
+		pageToken := strings.TrimSpace(rctx.Str("page-token"))
 		dry := common.NewDryRunAPI()
-		dry.Desc("List release history — NOT YET ON OPENAPI GATEWAY (rpc reference shown; real call returns 'unavailable' until publishAPIWired=true)")
-		dry.Set("psm", "lark.apaas.devops")
-		dry.Set("rpc_method", rpcListReleases)
-		dry.Set("request", buildHistoryBody(appID, strings.TrimSpace(rctx.Str("status")), rctx.Int("limit"), strings.TrimSpace(rctx.Str("page-token"))))
+		dry.GET(fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))).
+			Desc("List release history — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')").
+			Params(buildHistoryQuery(status, limit, pageToken))
 		dry.Set("gateway_status", "not_deployed")
-		dry.Set("note", "endpoint not yet on OpenAPI gateway; rpc_method is the upstream reference, not a gateway path")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -55,9 +56,11 @@ var AppsPublishHistory = common.Shortcut{
 			return err
 		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
-		path := fmt.Sprintf(publishHistoryPath, validate.EncodePathSegment(appID))
-		body := buildHistoryBody(appID, strings.TrimSpace(rctx.Str("status")), rctx.Int("limit"), strings.TrimSpace(rctx.Str("page-token")))
-		data, err := rctx.CallAPI("POST", path, nil, body)
+		status := strings.TrimSpace(rctx.Str("status"))
+		limit := rctx.Int("limit")
+		pageToken := strings.TrimSpace(rctx.Str("page-token"))
+		path := fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))
+		data, err := rctx.CallAPI("GET", path, buildHistoryQuery(status, limit, pageToken), nil)
 		if err != nil {
 			return err
 		}
@@ -70,10 +73,10 @@ var AppsPublishHistory = common.Shortcut{
 					continue
 				}
 				rows = append(rows, map[string]interface{}{
-					"releaseID": m["releaseID"],
-					"status":    m["status"],
-					"createdAt": m["createdAt"],
-					"updatedAt": m["updatedAt"],
+					"release_id": m["release_id"],
+					"status":     m["status"],
+					"created_at": m["created_at"],
+					"updated_at": m["updated_at"],
 				})
 			}
 			output.PrintTable(w, rows)
@@ -82,20 +85,21 @@ var AppsPublishHistory = common.Shortcut{
 	},
 }
 
-// buildHistoryBody builds the list-releases body. status is sent only when non-empty;
-// limit only when > 0 (0 means "not provided"); pageToken only when non-empty.
-func buildHistoryBody(appID string, status string, limit int, pageToken string) map[string]interface{} {
-	body := map[string]interface{}{"appID": appID}
+// buildHistoryQuery builds the list-releases query parameters. app_id is in the
+// path. status is included when non-empty; limit when > 0; page_token (snake)
+// when non-empty.
+func buildHistoryQuery(status string, limit int, pageToken string) map[string]interface{} {
+	q := map[string]interface{}{}
 	if status != "" {
-		body["status"] = status
+		q["status"] = status
 	}
 	if limit > 0 {
-		body["limit"] = limit
+		q["limit"] = limit
 	}
 	if pageToken != "" {
-		body["pageToken"] = pageToken
+		q["page_token"] = pageToken
 	}
-	return body
+	return q
 }
 
 // validateHistoryLimit accepts 0 (unset) or 1-500.

@@ -5,25 +5,31 @@ package apps
 
 import "testing"
 
-func TestBuildHistoryBody(t *testing.T) {
-	// status and limit omitted when zero/empty
-	b := buildHistoryBody("app_x", "", 0, "")
-	if _, ok := b["status"]; ok {
-		t.Errorf("status should be omitted when empty, got %v", b)
+func TestBuildHistoryQuery(t *testing.T) {
+	// status, limit, page_token omitted when zero/empty; app_id is in the path
+	q := buildHistoryQuery("", 0, "")
+	if _, ok := q["status"]; ok {
+		t.Errorf("status should be omitted when empty, got %v", q)
 	}
-	if _, ok := b["limit"]; ok {
-		t.Errorf("limit should be omitted when 0, got %v", b)
+	if _, ok := q["limit"]; ok {
+		t.Errorf("limit should be omitted when 0, got %v", q)
 	}
-	if _, ok := b["pageToken"]; ok {
-		t.Errorf("pageToken should be omitted when empty, got %v", b)
+	if _, ok := q["page_token"]; ok {
+		t.Errorf("page_token should be omitted when empty, got %v", q)
 	}
-	// status included when non-empty
-	b2 := buildHistoryBody("app_x", "finished", 30, "tok")
-	if b2["status"] != "finished" {
-		t.Errorf("status = %v, want finished", b2["status"])
+	// all params included; page_token uses snake_case key
+	q2 := buildHistoryQuery("finished", 30, "tok")
+	if q2["status"] != "finished" {
+		t.Errorf("status = %v, want finished", q2["status"])
 	}
-	if b2["limit"] != 30 || b2["pageToken"] != "tok" {
-		t.Errorf("body = %v", b2)
+	if q2["limit"] != 30 {
+		t.Errorf("limit = %v, want 30", q2["limit"])
+	}
+	if q2["page_token"] != "tok" {
+		t.Errorf("page_token = %v, want tok", q2["page_token"])
+	}
+	if _, ok := q2["app_id"]; ok {
+		t.Errorf("app_id must not be in query params, got %v", q2)
 	}
 }
 

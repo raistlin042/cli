@@ -6,10 +6,11 @@ package apps
 import "testing"
 
 func TestShapeErrorLog(t *testing.T) {
+	// gateway returns snake_case error_logs
 	in := map[string]interface{}{
 		"status": "failed",
-		"errorLogs": []interface{}{
-			map[string]interface{}{"step": "build", "errorLog": "boom"},
+		"error_logs": []interface{}{
+			map[string]interface{}{"step": "build", "error_log": "boom"},
 		},
 	}
 	out := shapeErrorLog(in)
@@ -20,7 +21,7 @@ func TestShapeErrorLog(t *testing.T) {
 	if !ok || len(logs) != 1 {
 		t.Fatalf("error_logs = %v", out["error_logs"])
 	}
-	// missing errorLogs -> empty slice, not nil
+	// missing error_logs -> empty slice, not nil
 	out2 := shapeErrorLog(map[string]interface{}{"status": "finished"})
 	if logs2, ok := out2["error_logs"].([]interface{}); !ok || len(logs2) != 0 {
 		t.Errorf("error_logs should default to empty slice, got %v", out2["error_logs"])
