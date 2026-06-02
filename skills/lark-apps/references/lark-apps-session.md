@@ -158,6 +158,36 @@ loop:
 
 ---
 
+## 对话流程引导（决策 + 每步话术）
+
+> 这些命令是原子的；把它们串成对用户顺畅的流程是 agent 的职责。下面给出「在哪个对话里做」的决策，以及每步成功后主动对用户说什么——不要默默替用户决定，也不要让用户干等。
+
+### 用户提出一个改动 / 需求时，先决定落到哪个对话
+
+| 情形 | 动作 |
+|------|------|
+| 用户要「全新应用 + 立刻改动」 | `+create --app-type fullstack`（自带首个 session）→ 直接 `+chat`，**不要**再 `+session-create` |
+| 已知 app_id，用户没指明在哪个对话改 | 先 `+session-list --app-id <id>`；若有 `is_active=true` 的对话，**问用户**：在「\<现有对话名\>」里继续，还是新开一个？ |
+| 用户明确说「新开一段 / 换个话题」 | `+session-create --app-id <id>` 建新 session，再 `+chat` |
+| 用户明确说「接着刚才那段」 | 复用上下文里的 session_id 直接 `+chat`；拿不到就 `+session-list` 让用户选 |
+| 拿不到 app_id | 不枚举 / 搜索应用，向用户要妙搭应用链接或 app_id |
+
+> 有活跃对话且用户没指明时，**先问一句**「现有对话里继续，还是新开？」再动手——不要默认替用户拍板。
+
+### 每个命令成功后，主动给用户的下一步
+
+- **`+session-create` / 全栈 `+create` 拿到 session_id 后** → 告诉用户「对话已就绪」，并**主动询问要做的第一个改动 / 需求**，拿到后调 `+chat`。不要建完 session 就停下等用户再开口。
+- **`+chat` 拿到 turn_id 后** → 告诉用户「需求已发起，云端处理中」，说明你会按 `next_poll_after_ms`（约 30s）帮他查进度。不要忙轮询，也不要让用户自己反复问。
+- **`+session-read` 之后**：
+  - `is_streaming=false` 且 `latest_turn.status=completed` → 「本轮已完成」，**主动问是否继续提下一个需求**。
+  - 仍在跑（`is_streaming=true`）→ 「仍在生成」，告知按 `next_poll_after_ms` 稍后再查。
+  - `latest_turn.status` 为 `failed` / `cancelled` → 转述失败原因，问是否重试。
+  - `is_active=false` → 「这个会话已关闭，不能再发」，引导 `+session-create` 开新对话。
+- **`+session-stop` 之后**：`stopped=true` → 「已停掉当前这一轮，会话没关，随时可以继续发新需求」；`stopped=false`（no-op）→ 「这轮其实已经不在跑了（状态 \<state\>）」，无需再停。
+- **`+session-list` 之后** → 用 `name` + `is_active` 列给用户挑；它是只读索引，「某对话进行到哪了」再 `+session-read`。
+
+---
+
 ## 错误码
 
 失败返回 `{ "ok": false, "error": { "type", "code", "message", "hint" } }`。常见：
