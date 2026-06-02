@@ -75,7 +75,7 @@ var AppsInit = common.Shortcut{
 			dry.Set("dir_error", err.Error())
 			dir = defaultCloneDir(appID)
 		}
-		dry.Set("clone", fmt.Sprintf("git clone -- <repo_url-from-credential-init> %s", dir))
+		dry.Set("clone", fmt.Sprintf("git clone -- <repository_url-from-credential-init> %s", dir))
 		dry.Set("clone_path", dir)
 		return dry
 	},
@@ -122,13 +122,14 @@ func ensureEmptyDir(dir string) error {
 	return nil
 }
 
-// parseRepoURLFromEnvelope extracts data.repo_url from a lark-cli JSON
-// envelope ({"ok":true,"data":{"repo_url":"..."}}).
+// parseRepoURLFromEnvelope extracts data.repository_url from a lark-cli JSON
+// envelope ({"ok":true,"data":{"repository_url":"..."}}). The field name
+// matches the contract emitted by `apps +git-credential-init`.
 func parseRepoURLFromEnvelope(stdout string) (string, error) {
 	var env struct {
 		OK   bool `json:"ok"`
 		Data struct {
-			RepoURL string `json:"repo_url"`
+			RepositoryURL string `json:"repository_url"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
@@ -137,20 +138,20 @@ func parseRepoURLFromEnvelope(stdout string) (string, error) {
 	if !env.OK {
 		return "", output.Errorf(output.ExitInternal, "credential_init", "+git-credential-init reported failure")
 	}
-	if strings.TrimSpace(env.Data.RepoURL) == "" {
-		return "", output.Errorf(output.ExitInternal, "credential_init", "+git-credential-init returned no repo_url")
+	if strings.TrimSpace(env.Data.RepositoryURL) == "" {
+		return "", output.Errorf(output.ExitInternal, "credential_init", "+git-credential-init returned no repository_url")
 	}
-	return env.Data.RepoURL, nil
+	return env.Data.RepositoryURL, nil
 }
 
-// validateRepoURLScheme rejects any repo_url that is not http(s):// to block
-// git's dangerous transports (ext::, file://, ssh://) and option injection.
+// validateRepoURLScheme rejects any repository_url that is not http(s):// to
+// block git's dangerous transports (ext::, file://, ssh://) and option injection.
 func validateRepoURLScheme(repoURL string) error {
 	if strings.HasPrefix(repoURL, "http://") || strings.HasPrefix(repoURL, "https://") {
 		return nil
 	}
 	return output.Errorf(output.ExitValidation, "validation",
-		"repo_url from +git-credential-init must be http(s); refusing %q", redactURLCredentials(repoURL))
+		"repository_url from +git-credential-init must be http(s); refusing %q", redactURLCredentials(repoURL))
 }
 
 func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
@@ -191,14 +192,14 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	}
 
 	out := map[string]interface{}{
-		"app_id":      appID,
-		"repo_url":    redactURLCredentials(repoURL),
-		"branch":      defaultInitBranch,
-		"clone_path":  dir,
-		"committed":   committed,
-		"pushed":      pushed,
-		"npx_skipped": true,
-		"message":     "Repository initialized. You can start developing.",
+		"app_id":         appID,
+		"repository_url": redactURLCredentials(repoURL),
+		"branch":         defaultInitBranch,
+		"clone_path":     dir,
+		"committed":      committed,
+		"pushed":         pushed,
+		"npx_skipped":    true,
+		"message":        "Repository initialized. You can start developing.",
 	}
 	rctx.OutFormat(out, nil, func(w io.Writer) {
 		fmt.Fprintf(w, "✓ Repository initialized at %s\n", dir)

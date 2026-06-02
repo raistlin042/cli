@@ -37,7 +37,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
   "ok": true,
   "data": {
     "app_id": "app_xxx",
-    "repo_url": "https://***@example.com/org/app_xxx.git",
+    "repository_url": "https://***@example.com/org/app_xxx.git",
     "branch": "sprint/default",
     "clone_path": "/abs/path/to/app_xxx",
     "committed": false,
@@ -66,7 +66,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 | 字段 | 含义 |
 |---|---|
 | `app_id` | 透传的应用 ID |
-| `repo_url` | 仓库地址，**凭据已脱敏**：URL 里的 userinfo 段被替换为 `***`（如 `https://***@host/...`）。任何回显仓库地址的错误信息也同样脱敏 |
+| `repository_url` | 仓库地址，**凭据已脱敏**：URL 里的 userinfo 段被替换为 `***`（如 `https://***@host/...`）。任何回显仓库地址的错误信息也同样脱敏 |
 | `branch` | 切出的分支，固定为 `sprint/default` |
 | `clone_path` | 本地克隆的**绝对路径** |
 | `committed` | 是否产生了 commit（工作区干净时为 `false`） |
@@ -74,7 +74,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 | `npx_skipped` | 本版本恒为 `true`（npx 脚手架步骤本版本有意跳过） |
 | `message` | 固定的成功提示文案 |
 
-错误 `type` 取值随失败阶段不同：`validation`（参数 / 路径 / repo_url scheme 非 http(s)）、`dependency`（PATH 上找不到 git）、`credential_init`（凭据签发失败或返回不可解析）、`git_clone` / `git_checkout` / `git_status` / `git_add` / `git_commit` / `git_push`（对应 git 步骤失败）。优先转述 `error.hint`，为空时退回 `error.message`。
+错误 `type` 取值随失败阶段不同：`validation`（参数 / 路径 / repository_url scheme 非 http(s)）、`dependency`（PATH 上找不到 git）、`credential_init`（凭据签发失败或返回不可解析）、`git_clone` / `git_checkout` / `git_status` / `git_add` / `git_commit` / `git_push`（对应 git 步骤失败）。优先转述 `error.hint`，为空时退回 `error.message`。
 
 ## --dry-run 行为
 
@@ -85,9 +85,9 @@ lark-cli apps +init --app-id app_xxx --dry-run
 ## 前置条件与注意事项
 
 - **`git` 必须在 PATH 上**：否则以结构化 `dependency` 错误退出，hint 为 `install git and ensure it is on your PATH`。
-- **依赖 `apps +git-credential-init`（尚未发布）**：`+init` 通过 shell out 调用同一个 lark-cli 可执行文件去跑 `apps +git-credential-init --app-id <id> --format json`（设置了 `--as` 时会透传），从其 `data.repo_url` 取仓库地址。该命令当前版本未发布，因此 `+init` 现阶段会在此步失败（`credential_init` 错误）。这是预期的，待 `+git-credential-init` 发布后即可正常工作。
+- **依赖 `apps +git-credential-init`**：`+init` 通过 shell out 调用同一个 lark-cli 可执行文件去跑 `apps +git-credential-init --app-id <id> --format json`（设置了 `--as` 时会透传），从其 `data.repository_url` 取仓库地址，再用它 `git clone`。运行时若凭据签发失败或远端不可达，`+init` 在此步返回 `credential_init` 结构化错误。
 - **commit message 固定**：push 时的 commit 主题是固定常量 `chore: scaffold app via lark-cli apps +init`，绝不拼接用户输入。
-- **repo_url 仅接受 http(s)**：从 `+git-credential-init` 拿到的地址若不是 `http://` / `https://`（如 `ssh://`、`ext::`、`file://`）会被直接拒绝（`validation` 错误），以防危险的 git transport 与参数注入。
+- **repository_url 仅接受 http(s)**：从 `+git-credential-init` 拿到的地址若不是 `http://` / `https://`（如 `ssh://`、`ext::`、`file://`）会被直接拒绝（`validation` 错误），以防危险的 git transport 与参数注入。
 - **不要**原样把 envelope JSON 复述给用户。
 
 ## 协同命令

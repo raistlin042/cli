@@ -38,7 +38,7 @@ func TestDefaultCloneDir(t *testing.T) {
 // --- pure-function tests ---
 
 func TestParseRepoURL(t *testing.T) {
-	url, err := parseRepoURLFromEnvelope(`{"ok":true,"data":{"repo_url":"http://u:t@h/app_x.git"}}`)
+	url, err := parseRepoURLFromEnvelope(`{"ok":true,"data":{"repository_url":"http://u:t@h/app_x.git"}}`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestParseRepoURL(t *testing.T) {
 }
 
 func TestParseRepoURL_Errors(t *testing.T) {
-	for _, in := range []string{`not json`, `{"ok":false,"data":{}}`, `{"ok":true,"data":{}}`, `{"ok":true,"data":{"repo_url":""}}`} {
+	for _, in := range []string{`not json`, `{"ok":false,"data":{}}`, `{"ok":true,"data":{}}`, `{"ok":true,"data":{"repository_url":""}}`} {
 		if _, err := parseRepoURLFromEnvelope(in); err == nil {
 			t.Errorf("expected error for %q", in)
 		}
@@ -78,7 +78,7 @@ func withFakeRunner(t *testing.T, f *fakeCommandRunner) {
 }
 
 func credInitOK(repoURL string) fakeCallResult {
-	return fakeCallResult{stdout: `{"ok":true,"data":{"repo_url":"` + repoURL + `"}}`}
+	return fakeCallResult{stdout: `{"ok":true,"data":{"repository_url":"` + repoURL + `"}}`}
 }
 
 // relCloneDir returns a relative, cwd-contained, not-yet-existing directory
@@ -147,8 +147,8 @@ func TestAppsInit_HappyPathCleanTree(t *testing.T) {
 	if data["npx_skipped"] != true {
 		t.Errorf("npx_skipped = %v, want true", data["npx_skipped"])
 	}
-	if data["repo_url"] != "http://***@h/app_x.git" {
-		t.Errorf("repo_url = %v, want redacted http://***@h/app_x.git", data["repo_url"])
+	if data["repository_url"] != "http://***@h/app_x.git" {
+		t.Errorf("repository_url = %v, want redacted http://***@h/app_x.git", data["repository_url"])
 	}
 	clone := findCall(f.calls, "git", "clone")
 	if clone == nil {
