@@ -14,5 +14,10 @@ func Shortcuts() []common.Shortcut {
 		AppsAccessScopeSet,
 		AppsAccessScopeGet,
 		AppsHTMLPublish,
+		AppsSessionCreate,
+		AppsSessionList,
+		AppsSessionRead,
+		AppsSessionStop,
+		AppsChat,
 	}
 }
