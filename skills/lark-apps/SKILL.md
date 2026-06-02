@@ -1,6 +1,6 @@
 ---
 name: lark-apps
-description: "把本地 HTML 文件或目录部署到飞书妙搭（Miaoda），生成一个公网可访问的应用及其链接（URL）；也管理妙搭应用的云端对话（session）。当用户要创建 HTML 或要把 HTML、静态网站或 Web demo 发布成公网可访问的链接 / 可分享链接、创建全栈（fullstack）应用 / 带后端（数据库、登录、API）的妙搭应用、设置应用共享范围，或提到妙搭 / Miaoda 时使用。当用户要在某个妙搭应用下开启 / 继续对话、给对话发消息让 agent 改动应用、查询对话生成是否完成、停掉正在生成的那一轮、或回来查看 / 继续之前在该应用上开过哪些对话时，也使用本 skill（不要去搜索本地文件、记忆或本机 Claude 进程）。凡产出可独立访问的 HTML 产物都属本 skill 的潜在归宿，是否真要部署由 skill 内部协议判断。不用于：上传普通文件到云空间/云盘/云存储（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
+description: "把本地 HTML 文件或目录部署到飞书妙搭（Miaoda），生成一个公网可访问的应用及其链接（URL）；也用于在妙搭应用下管理云端对话（session）。当用户要创建 HTML 或要把 HTML、静态网站或 Web demo 发布成公网可访问的链接 / 可分享链接、创建全栈（fullstack）应用 / 带后端（数据库、登录、API）的妙搭应用、设置应用共享范围、在妙搭应用下开启 / 继续对话或发消息改动应用、查询或停止正在生成的对话、列出或继续历史对话，或提到妙搭 / Miaoda 时使用。凡产出可独立访问的 HTML 产物都属本 skill 的潜在归宿，是否真要部署由 skill 内部协议判断。不用于：上传普通文件到云空间/云盘/云存储（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -30,7 +30,7 @@ lark-cli apps +access-scope-set --app-id app_xxx --scope tenant
 4. **发布 HTML / PPT / 静态网站（`apps +html-publish`）** → 必读 [`lark-apps-html-publish.md`](references/lark-apps-html-publish.md)（`--path` 文件 vs 目录、tar.gz 打包不做过滤）
 5. **设置可用范围（`apps +access-scope-set`）** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md)（specific / public / tenant 三态互斥校验、targets JSON 结构）
 6. **查看当前可用范围（`apps +access-scope-get`）** → 必读 [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)（响应 scope 枚举 `All` / `Tenant` / `Range` 与 CLI 的 `public` / `tenant` / `specific` 映射；含 jq 复制 scope 配置示例）
-7. **对话（在 app 下创建 session / 发消息 / 查询轮询状态 / 停止 / 列出对话：`apps +session-create` / `+chat` / `+session-read` / `+session-stop` / `+session-list`）** → 必读 [`lark-apps-session.md`](references/lark-apps-session.md)（异步 + 单次读取轮询、turn_id 生命周期、`is_streaming`/`latest_turn.status` 判读、顶层 snake_case 嵌套 camelCase 的字段差异）
+7. **对话（在 app 下创建 / 发消息 / 轮询 / 停止 / 列出 session）** → 必读 [`lark-apps-session.md`](references/lark-apps-session.md)（异步单次读取轮询、字段顶层 snake_case 嵌套 camelCase）
 
 **未读完以上文件就执行相应操作会导致参数选择错误、互斥违反或文件被错误打包。**
 
@@ -84,7 +84,7 @@ lark-cli auth login --domain apps
 ### HTML vs fullstack 意图分流
 
 - 用户要**纯静态页面 / HTML / PPT / 幻灯片 / 单页 / 演示 / Web demo**（无后端逻辑）→ `--app-type HTML`，走现有端到端流程（+create → +html-publish）
-- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type fullstack`（从用户描述生成 `--name` 和 `--description`）。`+create --app-type fullstack` 的 JSON 响应里会带一个 `session_id`（用 `--format json` 读 `data.session_id`，pretty 输出只显示 app_id），可直接用 `apps +chat --app-id <app_id> --session-id <session_id> --message "..."` 发起云端对话开发，再用 `+session-read` 轮询；若响应无 session_id 则改用 `+session-create`——详见 [`references/lark-apps-session.md`](references/lark-apps-session.md)（本地开发链路另待 `+git-credential-init` 就绪后补充）
+- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type fullstack`（从用户描述生成 `--name` 和 `--description`）。fullstack `+create` 的 JSON 响应带 `data.session_id`，可直接 `+chat` 发起云端对话开发，详见 [`references/lark-apps-session.md`](references/lark-apps-session.md)（本地开发链路待 `+git-credential-init` 就绪后补充）
 - 意图模糊、无法判断 → 默认 `HTML`（更轻、且为现有成熟流程），必要时追问一句澄清
 - 详细判定规则见 [`references/lark-apps-create.md`](references/lark-apps-create.md) 的「意图识别」小节
 
@@ -114,8 +114,8 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 | [`+access-scope-set`](references/lark-apps-access-scope-set.md) | 设置应用可用范围（specific / public / tenant，三态互斥校验） |
 | [`+access-scope-get`](references/lark-apps-access-scope-get.md) | 查看应用当前可用范围（响应 scope 枚举 `All` / `Tenant` / `Range`；可作"备份 / 复制 scope 配置"前置读） |
 | [`+html-publish`](references/lark-apps-html-publish.md) | **把本地 HTML 文件 / 目录 / PPT / 静态网站部署为可分享的妙搭应用，返回访问 URL**（用户明示部署 / 分享时直接调；仅说"可演示"时先问用户是否要部署再调） |
-| [`+session-create`](references/lark-apps-session.md) | 在已有 app 下新建一个对话 session（返回 session_id） |
-| [`+session-list`](references/lark-apps-session.md) | 列出 app 下的 session（分页；重新进入 agent 时挑会话继续） |
-| [`+session-read`](references/lark-apps-session.md) | 查询/轮询一个 session 的状态、队列、最近一轮（单次读取，`is_streaming`/`latest_turn.status` 判读） |
-| [`+session-stop`](references/lark-apps-session.md) | 打断 session 上正在执行的当前轮（需 turn_id；不关闭会话） |
-| [`+chat`](references/lark-apps-session.md) | 向 session 发一条消息，发起/继续云端对话（返回 turn_id，异步） |
+| [`+session-create`](references/lark-apps-session.md) | 在 app 下新建对话 session |
+| [`+session-list`](references/lark-apps-session.md) | 列出 app 下的对话（分页） |
+| [`+session-read`](references/lark-apps-session.md) | 查询 / 轮询对话状态（单次读取） |
+| [`+session-stop`](references/lark-apps-session.md) | 打断对话正在生成的当前轮（需 turn_id） |
+| [`+chat`](references/lark-apps-session.md) | 向对话发消息，发起 / 继续（异步，返回 turn_id） |
