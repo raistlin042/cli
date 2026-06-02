@@ -18,7 +18,9 @@ func TestAppsChat_Success(t *testing.T) {
 		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/messages",
 		Body: map[string]interface{}{
 			"code": 0,
-			"data": map[string]interface{}{"turn_id": "8421374925", "next_poll_after_ms": 30000},
+			// v7.8: +chat is async and returns NO turn_id (turn not generated yet),
+			// only next_poll_after_ms. turn_id is read later from +session-read.
+			"data": map[string]interface{}{"next_poll_after_ms": 30000},
 		},
 	}
 	reg.Register(stub)
@@ -37,8 +39,8 @@ func TestAppsChat_Success(t *testing.T) {
 	if _, present := sent["attachment_ids"]; present {
 		t.Fatalf("attachment_ids must not be sent this iteration: %v", sent)
 	}
-	if got := stdout.String(); !strings.Contains(got, `"turn_id": "8421374925"`) {
-		t.Fatalf("stdout missing turn_id: %s", got)
+	if got := stdout.String(); !strings.Contains(got, `"next_poll_after_ms": 30000`) {
+		t.Fatalf("stdout missing next_poll_after_ms: %s", got)
 	}
 }
 
@@ -47,14 +49,14 @@ func TestAppsChat_Pretty(t *testing.T) {
 	reg.Register(&httpmock.Stub{
 		Method: "POST",
 		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/messages",
-		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"turn_id": "t9", "next_poll_after_ms": 30000}},
+		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"next_poll_after_ms": 30000}},
 	})
 	if err := runAppsShortcut(t, AppsChat,
 		[]string{"+chat", "--app-id", "app_x", "--session-id", "conv_x", "--message", "hi", "--format", "pretty", "--as", "user"},
 		factory, stdout); err != nil {
 		t.Fatalf("execute err=%v", err)
 	}
-	if got := stdout.String(); !strings.Contains(got, "turn started: t9") || !strings.Contains(got, "30000") {
+	if got := stdout.String(); !strings.Contains(got, "message sent") || !strings.Contains(got, "30000") {
 		t.Fatalf("pretty wrong: %q", got)
 	}
 }

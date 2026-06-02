@@ -14,7 +14,9 @@ import (
 )
 
 // AppsChat sends a user message to a session, starting/continuing a conversation.
-// Returns turn_id (async handle); poll +session-read for status.
+// Async: the message is queued and the response carries no turn_id (the turn is
+// not generated yet). Poll +session-read; once the turn runs, its handle is in
+// latest_turn.turnID.
 var AppsChat = common.Shortcut{
 	Service:     appsService,
 	Command:     "+chat",
@@ -53,8 +55,8 @@ var AppsChat = common.Shortcut{
 			return err
 		}
 		rctx.OutFormat(data, nil, func(w io.Writer) {
-			fmt.Fprintf(w, "turn started: %s (poll after %vms)\n",
-				common.GetString(data, "turn_id"), data["next_poll_after_ms"])
+			fmt.Fprintf(w, "message sent; poll +session-read after %vms for turn status\n",
+				data["next_poll_after_ms"])
 		})
 		return nil
 	},

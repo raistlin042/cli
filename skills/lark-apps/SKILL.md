@@ -118,4 +118,4 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 | [`+session-list`](references/lark-apps-session.md) | 列出 app 下的对话（分页） |
 | [`+session-read`](references/lark-apps-session.md) | 查询 / 轮询对话状态（单次读取） |
 | [`+session-stop`](references/lark-apps-session.md) | 打断对话正在生成的当前轮（需 turn_id） |
-| [`+chat`](references/lark-apps-session.md) | 向对话发消息，发起 / 继续（异步，返回 turn_id） |
+| [`+chat`](references/lark-apps-session.md) | 向对话发消息，发起 / 继续（异步；turn_id 之后在 +session-read 取） |

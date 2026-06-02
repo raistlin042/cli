@@ -18,7 +18,7 @@
 
 ```bash
 lark-cli apps +session-create --app-id app_xxx                                    # → session_id
-lark-cli apps +chat --app-id app_xxx --session-id conv_xxx --message "把表头改蓝"   # → turn_id
+lark-cli apps +chat --app-id app_xxx --session-id conv_xxx --message "把表头改蓝"   # 异步，只回 next_poll_after_ms（无 turn_id）
 lark-cli apps +session-read --app-id app_xxx --session-id conv_xxx                 # 轮询
 lark-cli apps +session-stop --app-id app_xxx --session-id conv_xxx --turn-id <turn_id>
 lark-cli apps +session-list --app-id app_xxx --format table
@@ -38,25 +38,26 @@ lark-cli apps +session-list --app-id app_xxx --format table
 
 ## 异步与轮询
 
-`+chat` 异步：只返回 `turn_id`，**不返回执行结果**。CLI 是单次读取，**轮询由调用方控制**（无内置 `--wait`），按 `next_poll_after_ms`（本期固定 30000ms）节流。`turn_id` 即 `+session-read` 的 `latest_turn.turnID`，也是 `+session-stop` 的定位句柄。
+`+chat` 异步：**只返回 `next_poll_after_ms`，不返 turn_id**（turn 此刻还在排队、未生成）。CLI 单次读取，**轮询由调用方控制**（无内置 `--wait`），按 `next_poll_after_ms`（本期固定 30000ms）节流。`turn_id` 在 turn 执行后才从 `+session-read` 的 `latest_turn.turnID` 取（刚进 RUNNING 时可能仍为空），它也是 `+session-stop` 的定位句柄。
 
 ```
-turn_id = +chat(...)
++chat(...)                      # 异步，只回 next_poll_after_ms（无 turn_id）
 loop:
   s = +session-read(...)
   if not s.is_streaming and s.latest_turn.status == "completed": 本轮完成 → 可发下一条 +chat
   if s.latest_turn.status in ("failed","cancelled"):            转述失败原因 → 问是否重试
   else:                                                          sleep(next_poll_after_ms) 再读
+# 要停这一轮：从 s.latest_turn.turnID 取 turn_id 再 +session-stop
 ```
 
 ## `+session-read` 字段判读
 
-关键字段：`is_active`（能否再 `+chat`）、`is_streaming`（是否有轮在跑）、`latest_turn`（`turnID` / `status`: running/completed/failed/cancelled）、`queued_count`、`next_poll_after_ms`。
+关键字段：`is_active`（能否再 `+chat`）、`is_streaming`（是否有轮在跑）、`latest_turn`（`turnID`，turn 执行后才有 / `status`: running/completed/failed/cancelled）、`queued_count`（排队中待处理的用户消息数）、`next_poll_after_ms`。
 
 - `is_streaming=false` 且 `latest_turn.status=completed` → 本轮结束，可发下一条。
 - `is_active=false` → 会话已关闭，引导 `+session-create` 开新会话。
 
-> ⚠️ **字段大小写不一致**：顶层 snake_case（`session_id` / `is_active` / `is_streaming`），嵌套 turn/message 是 **camelCase**（`turnID` / `seqNo` / `messageID` / `finishReason`）。解析嵌套字段按 camelCase 取键，否则取到 `nil`。
+> ⚠️ **字段大小写不一致**：顶层 snake_case（`session_id` / `is_active` / `is_streaming`），嵌套 turn / 排队消息字段是 **camelCase**（`turnID` / `seqNo` / `submittedAt` / `attachmentIDs`）。解析嵌套字段按 camelCase 取键，否则取到 `nil`。
 
 ## `+session-stop` 语义
 
