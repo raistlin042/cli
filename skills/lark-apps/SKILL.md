@@ -84,7 +84,7 @@ lark-cli auth login --domain apps
 ### HTML vs fullstack 意图分流
 
 - 用户要**纯静态页面 / HTML / PPT / 幻灯片 / 单页 / 演示 / Web demo**（无后端逻辑）→ `--app-type HTML`，走现有端到端流程（+create → +html-publish）
-- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type fullstack`（从用户描述生成 `--name` 和 `--description`）。`+create --app-type fullstack` 会一并返回一个 `session_id`，可直接用 `apps +chat --app-id <app_id> --session-id <session_id> --message "..."` 发起云端对话开发，再用 `+session-read` 轮询——详见 [`references/lark-apps-session.md`](references/lark-apps-session.md)（本地开发链路另待 `+git-credential-init` 就绪后补充）
+- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type fullstack`（从用户描述生成 `--name` 和 `--description`）。`+create --app-type fullstack` 的 JSON 响应里会带一个 `session_id`（用 `--format json` 读 `data.session_id`，pretty 输出只显示 app_id），可直接用 `apps +chat --app-id <app_id> --session-id <session_id> --message "..."` 发起云端对话开发，再用 `+session-read` 轮询；若响应无 session_id 则改用 `+session-create`——详见 [`references/lark-apps-session.md`](references/lark-apps-session.md)（本地开发链路另待 `+git-credential-init` 就绪后补充）
 - 意图模糊、无法判断 → 默认 `HTML`（更轻、且为现有成熟流程），必要时追问一句澄清
 - 详细判定规则见 [`references/lark-apps-create.md`](references/lark-apps-create.md) 的「意图识别」小节
 

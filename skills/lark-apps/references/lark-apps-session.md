@@ -20,7 +20,7 @@
 
 ## 核心概念
 
-- **session_id**：会话 ID。`apps +create --app-type fullstack` 或 `+session-create` 返回。
+- **session_id**：会话 ID。两个来源：(a) `+session-create` 的 `data.session_id`；(b) `apps +create --app-type fullstack` 的 JSON 响应里的 `data.session_id`（全栈创建时后端自动建首个 session 并随响应返回——用 `--format json` 读 `data.session_id`，**注意 `+create` 的 pretty 输出只打印 app_id，session_id 在 JSON 里**）。若某次 `+create` 响应里没有 `session_id`，退回用 `+session-create` 显式建一个。
 - **turn_id**：一次对话（一轮 chat）的处理句柄。`+chat` 返回；`+session-stop` 用它定位要停的轮；`+session-read` 的 `latest_turn.turnID` 也是它。
 - **异步 + 轮询**：`+chat` 只发起对话并返回 `turn_id`，**不返回执行结果**。云端异步处理，需用 `+session-read` 查询/轮询最新状态。CLI 是单次读取——**轮询循环由你（调用方）控制**，没有内置 `--wait`。
 - **轮询节奏**：`+chat` / `+session-read` 返回 `next_poll_after_ms`（本期固定 30000，即 30 秒）。两次 `+session-read` 之间按它节流，不要忙等。
@@ -113,10 +113,11 @@ lark-cli apps +chat --app-id app_xxx --session-id conv_xxx --message "hi" --dry-
 
 ### 1. 创建全栈应用并发起对话（最常见）
 
-`apps +create --app-type fullstack` 会一并返回 `session_id`，可直接 `+chat`，**无需** `+session-create`：
+全栈创建时后端会随响应返回首个 `session_id`，可直接 `+chat`，**无需** `+session-create`。用 `--format json` 拿 `data.app.app_id` 和 `data.session_id`（pretty 输出只显示 app_id）：
 
 ```bash
-lark-cli apps +create --app-type fullstack --name "素材管理后台" --description "..."   # → app_id + session_id
+lark-cli apps +create --app-type fullstack --name "素材管理后台" --description "..." --format json
+#   → data.app.app_id 和 data.session_id；若响应无 session_id，改用 +session-create 建一个
 lark-cli apps +chat --app-id <app_id> --session-id <session_id> --message "创建一个素材管理后台"   # → turn_id
 # 然后轮询：
 lark-cli apps +session-read --app-id <app_id> --session-id <session_id>               # 直到 is_streaming=false
@@ -169,6 +170,7 @@ loop:
 | `SESSION_CLOSED` | 向已关闭/归档的 session 写入（`is_active=false` 后还 `+chat`） |
 | `RATE_LIMITED` / `QUOTA_EXCEEDED` | 限流 / 额度耗尽 |
 | `PERMISSION_DENIED` | 鉴权失败 / 无权限 |
+| `INTERNAL` | 后端内部错误（5xx 兜底） |
 
 转述 `error.hint`（优先）或 `error.message`，不要原样把 envelope JSON 复述给用户。
 
