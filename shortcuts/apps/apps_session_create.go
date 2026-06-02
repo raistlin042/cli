@@ -53,4 +53,3 @@ var AppsSessionCreate = common.Shortcut{
 func sessionsPath(appID string) string {
 	return fmt.Sprintf("%s/apps/%s/sessions", apiBasePath, validate.EncodePathSegment(strings.TrimSpace(appID)))
 }
-
