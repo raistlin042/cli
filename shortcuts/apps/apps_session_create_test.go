@@ -12,14 +12,15 @@ import (
 
 func TestAppsSessionCreate_Success(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
-	reg.Register(&httpmock.Stub{
+	stub := &httpmock.Stub{
 		Method: "POST",
 		URL:    "/open-apis/spark/v1/apps/app_x/sessions",
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{"session_id": "conv_new"},
 		},
-	})
+	}
+	reg.Register(stub)
 	if err := runAppsShortcut(t, AppsSessionCreate,
 		[]string{"+session-create", "--app-id", "app_x", "--as", "user"},
 		factory, stdout); err != nil {
@@ -27,6 +28,9 @@ func TestAppsSessionCreate_Success(t *testing.T) {
 	}
 	if got := stdout.String(); !strings.Contains(got, `"session_id": "conv_new"`) {
 		t.Fatalf("stdout missing session_id: %s", got)
+	}
+	if len(stub.CapturedBody) != 0 {
+		t.Fatalf("+session-create must POST with no body, got: %s", stub.CapturedBody)
 	}
 }
 

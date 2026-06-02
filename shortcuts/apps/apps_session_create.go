@@ -54,10 +54,3 @@ func sessionsPath(appID string) string {
 	return fmt.Sprintf("%s/apps/%s/sessions", apiBasePath, validate.EncodePathSegment(strings.TrimSpace(appID)))
 }
 
-// sessionPath builds the single-session path under an app.
-func sessionPath(appID, sessionID string) string {
-	return fmt.Sprintf("%s/apps/%s/sessions/%s",
-		apiBasePath,
-		validate.EncodePathSegment(strings.TrimSpace(appID)),
-		validate.EncodePathSegment(strings.TrimSpace(sessionID)))
-}
