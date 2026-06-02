@@ -11,8 +11,8 @@ metadata:
 
 ```bash
 # 常用示例
-lark-cli apps +create           --name "客户调研问卷" --app-type HTML
-lark-cli apps +create           --name "团队任务看板" --app-type fullstack --description "带登录和数据库的任务看板"
+lark-cli apps +create           --name "客户调研问卷" --app-type html
+lark-cli apps +create           --name "团队任务看板" --app-type full_stack --description "带登录和数据库的任务看板"
 lark-cli apps +html-publish     --app-id app_xxx --path ./dist
 lark-cli apps +access-scope-set --app-id app_xxx --scope tenant
 ```
@@ -30,6 +30,7 @@ lark-cli apps +access-scope-set --app-id app_xxx --scope tenant
 4. **发布 HTML / PPT / 静态网站（`apps +html-publish`）** → 必读 [`lark-apps-html-publish.md`](references/lark-apps-html-publish.md)（`--path` 文件 vs 目录、tar.gz 打包不做过滤）
 5. **设置可用范围（`apps +access-scope-set`）** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md)（specific / public / tenant 三态互斥校验、targets JSON 结构）
 6. **查看当前可用范围（`apps +access-scope-get`）** → 必读 [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)（响应 scope 枚举 `All` / `Tenant` / `Range` 与 CLI 的 `public` / `tenant` / `specific` 映射；含 jq 复制 scope 配置示例）
+7. **按名称搜索 / 解析 app_id（`apps +list`）** → 必读 [`lark-apps-list.md`](references/lark-apps-list.md)（`--keyword` / `--scope` / `--app-type`；仅在用户给了应用名、需解析 app_id 时用，禁止无条件枚举）
 
 **未读完以上文件就执行相应操作会导致参数选择错误、互斥违反或文件被错误打包。**
 
@@ -67,7 +68,7 @@ lark-cli auth login --domain apps
 
 | 步骤 | 命令 | 说明 |
 |------|------|------|
-| 1. 新建应用 | `apps +create --name "<根据内容主题起的应用名>" --app-type HTML` → 从响应里拿 `app_id` | 默认都走新建（**不要尝试搜索 / 枚举已有应用**）。用户明确要复用现有应用时让他提供 **妙搭应用链接** 或 **app_id 字符串**（详见下方"快速决策"）；应用类型按需选择，见下方「快速决策 > HTML vs fullstack 意图分流」 |
+| 1. 新建应用 | `apps +create --name "<根据内容主题起的应用名>" --app-type html` → 从响应里拿 `app_id` | 默认都走新建。用户明确要复用现有应用时，让他提供 **妙搭应用链接** / **app_id 字符串**，或在仅给出应用**名称**时用 `apps +list --keyword` 搜索后确认（详见下方"快速决策 > 用户没给 app_id"）；应用类型按需选择，见下方「快速决策 > html vs full_stack 意图分流」 |
 | 1.5 预检（可选） | `apps +html-publish --app-id <id> --path <path> --dry-run` 看 manifest | 主要用来看 `files` / `total_size_bytes`。**凭据文件已经在 Validate 阶段直接 exit 非 0**（不再是 advisory warning），所以预检通过就说明走真发也通过；预检报 `.env` 等命中时，先清产物或加 `--allow-sensitive` 再 publish |
 | 2. 发布 HTML | `apps +html-publish --app-id <id> --path <文件或目录>` | 必走 |
 | 3. 设置可用范围（可选） | `apps +access-scope-set --app-id <id> --scope tenant\|public\|specific ...` | 用户说"公开 / 全员可见 / 让 Alice 看 / 互联网可分享"等 |
@@ -80,11 +81,11 @@ lark-cli auth login --domain apps
 
 ## 快速决策
 
-### HTML vs fullstack 意图分流
+### html vs full_stack 意图分流
 
-- 用户要**纯静态页面 / HTML / PPT / 幻灯片 / 单页 / 演示 / Web demo**（无后端逻辑）→ `--app-type HTML`，走现有端到端流程（+create → +html-publish）
-- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type fullstack`（从用户描述生成 `--name` 和 `--description`），到 `+create` 为止（fullstack 后续本地开发链路待 `+git-credential-init` 就绪后补充）
-- 意图模糊、无法判断 → 默认 `HTML`（更轻、且为现有成熟流程），必要时追问一句澄清
+- 用户要**纯静态页面 / HTML / PPT / 幻灯片 / 单页 / 演示 / Web demo**（无后端逻辑）→ `--app-type html`，走现有端到端流程（+create → +html-publish）
+- 用户要**带后端能力的全栈应用**（数据库 / 登录鉴权 / API / 表单提交存储 / 用户系统 / 增删改查 / 持久化 / 服务端逻辑 / "全栈" / "带后台" / "后台管理"）→ `--app-type full_stack`（从用户描述生成 `--name` 和 `--description`），到 `+create` 为止（full_stack 后续本地开发链路待 `+git-credential-init` 就绪后补充）
+- 意图模糊、无法判断 → 默认 `html`（更轻、且为现有成熟流程），必要时追问一句澄清
 - 详细判定规则见 [`references/lark-apps-create.md`](references/lark-apps-create.md) 的「意图识别」小节
 
 ### 操作决策
@@ -94,7 +95,10 @@ lark-cli auth login --domain apps
 - 用户说"把应用 X 开放给全员 / 全公司" → `--scope tenant`，不要再传别的 flag
 - 用户说"公开 / 让任何人都能访问 / 互联网可见" → `--scope public --require-login=<bool>`，二选一
 - 用户说"只让 Alice / 某部门 / 某群访问" → `--scope specific --targets <JSON>`；姓名先用 `contact +search-user` 换 `ou_id`，群名先用 `im +chat-search` 换 `chat_id`
-- 用户没给 app_id → **先按「HTML vs fullstack 意图分流」确定类型，再 `apps +create --name "<根据内容主题起的名字>" --app-type <类型>` 新建一个**。**不要尝试搜索 / 枚举已有应用** —— 列举应用的命令对 Agent 不可见，强行调用也只会浪费一次 OAPI 请求。如果用户明确要复用现有应用，**让他提供下列任一种**：
+- 用户没给 app_id → **默认按「html vs full_stack 意图分流」确定类型，再 `apps +create --name "<根据内容主题起的名字>" --app-type <类型>` 新建一个**。
+  - **例外（唯一触发条件）**：用户给出了应用**名称**、且接下来的操作（`+update` / `+html-publish` / `+access-scope-set`）依赖 `app_id` 但当前拿不到 → 用 `apps +list --keyword "<名称>"` 模糊搜索，把候选 `app_id` + `name` 列给用户、**确认是哪一个**后再继续。
+  - **禁止无条件枚举**：除上述触发条件外，不要主动 `apps +list` 全量列举应用。
+  - 用户也可直接提供 **妙搭应用链接** 或 **app_id 字符串**（此时无需搜索）：
   - **妙搭应用链接**：形如 `https://miaoda.feishu.cn/app/app_xxxxxxxxxxxxx`（或带尾斜杠 `/app/app_xxx/`）—— `app_id` 是 `/app/` 后面的 path segment（以 `app_` 开头）。从 URL 中提取的简单办法：`APP_ID=$(echo "$URL" | sed -E 's|.*/app/([^/?#]+).*|\1|')`
   - **app_id 字符串**：用户直接给的 `app_xxxxxxxxxxxxx`，不需要再做处理
 - `--path` 既可传单个 HTML 文件也可传目录；目录会**递归打包成 tar.gz 不做过滤**，要提醒用户传干净的产物目录（如 `./dist`），避免把 `.git` / `node_modules` 一起打进去
@@ -108,7 +112,8 @@ Shortcut 是对常用操作的高级封装（`lark-cli apps +<verb> [flags]`）�
 
 | Shortcut | 说明 |
 |----------|------|
-| [`+create`](references/lark-apps-create.md) | 创建妙搭应用（HTML / fullstack；从用户输入生成 name/description） |
+| [`+create`](references/lark-apps-create.md) | 创建妙搭应用（html / full_stack；从用户输入生成 name/description） |
+| [`+list`](references/lark-apps-list.md) | 列出 / 模糊搜索当前用户可见的妙搭应用（`--keyword` / `--scope` / `--app-type`）；**仅在用户给了应用名、需解析 app_id 时用，禁止无条件枚举** |
 | [`+update`](references/lark-apps-update.md) | 部分更新应用名 / 描述（只发传入字段） |
 | [`+access-scope-set`](references/lark-apps-access-scope-set.md) | 设置应用可用范围（specific / public / tenant，三态互斥校验） |
 | [`+access-scope-get`](references/lark-apps-access-scope-get.md) | 查看应用当前可用范围（响应 scope 枚举 `All` / `Tenant` / `Range`；可作"备份 / 复制 scope 配置"前置读） |
