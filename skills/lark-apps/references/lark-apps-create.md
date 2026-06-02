@@ -69,7 +69,7 @@ lark-cli apps +create --name "团队任务看板" --app-type full_stack \
 
 ## 字段语义
 
-- `app_type` 是应用类型枚举，**区分大小写**，当前支持 `html` 和 `full_stack`（两者均大小写敏感精确匹配，不在白名单的取值 CLI 端直接拒绝）
+- `app_type` 是应用类型枚举，**区分大小写**，当前支持 `html` 和 `full_stack`
 - `created_at` 是 ISO 8601 UTC 时间字符串
 - `error.hint` 是 CLI 给出的可执行修复建议，**优先**转述给用户；hint 为空时退回 `error.message`
 - 不要原样把 envelope JSON 复述给用户
