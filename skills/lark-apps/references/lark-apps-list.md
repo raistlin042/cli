@@ -83,10 +83,7 @@ lark-cli apps +list --keyword 客户调研问卷 -q '.data.items[] | select(.nam
 
 ## Agent 使用契约
 
-- **默认仍走 `apps +create` 新建**——本命令不改变默认行为。
-- **唯一触发条件**：当用户给出应用**名称**、且接下来的操作（`+update` / `+html-publish` / `+access-scope-set`）依赖 `app_id` 但当前拿不到时，用 `apps +list --keyword "<名称>"` 模糊搜索，把候选 `app_id` + `name` 列给用户、**确认是哪一个**后再继续。
-- **禁止无条件枚举**：除上述触发条件外，不要主动 `apps +list` 全量列举应用。
-- 用户也可直接提供 **妙搭应用链接** 或 **app_id 字符串**（见 [`../SKILL.md`](../SKILL.md) "用户没给 app_id" 一节），此时无需搜索。
+何时该调用本命令（默认仍走 `+create`、仅凭用户给的应用名解析 `app_id`、禁止无条件枚举）以 [`../SKILL.md`](../SKILL.md) "用户没给 app_id" 一节为准，不在此重复。命中触发条件后，用上面的 `--keyword` 示例搜索，并用 `-q '.data.items[] | select(.name=="<名称>") | .app_id'` 提取候选交用户确认。
 
 ## 协同命令
 
