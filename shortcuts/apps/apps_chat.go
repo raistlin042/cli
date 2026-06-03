@@ -45,12 +45,12 @@ var AppsChat = common.Shortcut{
 	},
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		return common.NewDryRunAPI().
-			POST(messagesPath(rctx.Str("app-id"), rctx.Str("session-id"))).
+			POST(chatPath(rctx.Str("app-id"), rctx.Str("session-id"))).
 			Desc("Send a message to a session").
 			Body(buildChatBody(rctx))
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		data, err := rctx.CallAPI("POST", messagesPath(rctx.Str("app-id"), rctx.Str("session-id")), nil, buildChatBody(rctx))
+		data, err := rctx.CallAPI("POST", chatPath(rctx.Str("app-id"), rctx.Str("session-id")), nil, buildChatBody(rctx))
 		if err != nil {
 			return err
 		}
@@ -62,8 +62,8 @@ var AppsChat = common.Shortcut{
 	},
 }
 
-func messagesPath(appID, sessionID string) string {
-	return sessionPath(appID, sessionID) + "/messages"
+func chatPath(appID, sessionID string) string {
+	return sessionPath(appID, sessionID) + "/chat"
 }
 
 func buildChatBody(rctx *common.RuntimeContext) map[string]interface{} {

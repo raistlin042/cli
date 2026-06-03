@@ -15,7 +15,7 @@ func TestAppsChat_Success(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
 	stub := &httpmock.Stub{
 		Method: "POST",
-		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/messages",
+		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/chat",
 		Body: map[string]interface{}{
 			"code": 0,
 			// v7.8: +chat is async and returns NO turn_id (turn not generated yet),
@@ -48,7 +48,7 @@ func TestAppsChat_Pretty(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
 	reg.Register(&httpmock.Stub{
 		Method: "POST",
-		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/messages",
+		URL:    "/open-apis/spark/v1/apps/app_x/sessions/conv_x/chat",
 		Body:   map[string]interface{}{"code": 0, "data": map[string]interface{}{"next_poll_after_ms": 30000}},
 	})
 	if err := runAppsShortcut(t, AppsChat,
@@ -93,7 +93,7 @@ func TestAppsChat_DryRun(t *testing.T) {
 		t.Fatalf("dry-run err=%v", err)
 	}
 	got := stdout.String()
-	if !strings.Contains(got, "/open-apis/spark/v1/apps/app_x/sessions/conv_x/messages") {
+	if !strings.Contains(got, "/open-apis/spark/v1/apps/app_x/sessions/conv_x/chat") {
 		t.Fatalf("dry-run missing endpoint: %s", got)
 	}
 	if !strings.Contains(got, `"message": "hi"`) {
