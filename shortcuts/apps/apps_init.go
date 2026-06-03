@@ -12,8 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"unicode"
 
+	"github.com/larksuite/cli/internal/charcheck"
 	"github.com/larksuite/cli/internal/output"
 	"github.com/larksuite/cli/shortcuts/common"
 )
@@ -108,8 +108,8 @@ func resolveTargetPath(rctx *common.RuntimeContext, appID string) (string, error
 	if raw == "" {
 		raw = defaultCloneDir(appID)
 	}
-	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
-		return "", output.ErrValidation("--dir must not contain control characters")
+	if err := charcheck.RejectControlChars(raw, "--dir"); err != nil {
+		return "", output.ErrValidation("%v", err)
 	}
 	abs, err := filepath.Abs(raw)
 	if err != nil {
