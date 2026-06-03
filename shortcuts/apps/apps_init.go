@@ -202,6 +202,38 @@ func isEmptyRepo(ctx context.Context, dir string) (bool, error) {
 	return strings.TrimSpace(stdout) == "", nil
 }
 
+// runScaffold runs the npx scaffolding step inside the cloned repo (cwd=dir).
+// Empty repo -> `app init`; non-empty -> `app upgrade` + meta app_id patch +
+// conditional `skills sync`. Returns "init" or "upgrade".
+func runScaffold(ctx context.Context, dir, appID, template string) (string, error) {
+	empty, err := isEmptyRepo(ctx, dir)
+	if err != nil {
+		return "", err
+	}
+	if empty {
+		// TODO(apps-init): emptiness via `git ls-files` assumes the backend creates
+		// a truly empty repo (no seed files like README/.gitignore). If seed files
+		// can appear, switch to a marker-file check (e.g. package.json presence).
+		// Confirm the backend's new-repo contents.
+		if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "app", "init", "--template", template, "--app-id", appID); err != nil {
+			return "", output.Errorf(output.ExitAPI, "npx_app_init", "npx app init failed: %s", gitErr(stderr, err))
+		}
+		return "init", nil
+	}
+	if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "app", "upgrade"); err != nil {
+		return "", output.Errorf(output.ExitAPI, "npx_app_upgrade", "npx app upgrade failed: %s", gitErr(stderr, err))
+	}
+	if err := ensureMetaAppID(dir, appID); err != nil {
+		return "", err
+	}
+	if !hasSteeringSkills(dir) {
+		if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "skills", "sync"); err != nil {
+			return "", output.Errorf(output.ExitAPI, "npx_skills_sync", "npx skills sync failed: %s", gitErr(stderr, err))
+		}
+	}
+	return "upgrade", nil
+}
+
 // parseRepoURLFromEnvelope extracts data.repository_url from a lark-cli JSON
 // envelope ({"ok":true,"data":{"repository_url":"..."}}). The field name
 // matches the contract emitted by `apps +git-credential-init`.

@@ -185,7 +185,94 @@ func findCall(calls [][]string, name, firstArg string) []string {
 	return nil
 }
 
+// findCallArg returns the first recorded call whose name (element[1]) matches
+// and whose args contain the given ordered subsequence anywhere after the name.
+func findCallArg(calls [][]string, name string, wantArgs ...string) []string {
+	for _, c := range calls {
+		if len(c) < 2 || c[1] != name {
+			continue
+		}
+		args := c[2:]
+		i := 0
+		for _, a := range args {
+			if i < len(wantArgs) && a == wantArgs[i] {
+				i++
+			}
+		}
+		if i == len(wantArgs) {
+			return c
+		}
+	}
+	return nil
+}
+
+func containsAll(call []string, subs ...string) bool {
+	set := map[string]bool{}
+	for _, c := range call {
+		set[c] = true
+	}
+	for _, s := range subs {
+		if !set[s] {
+			return false
+		}
+	}
+	return true
+}
+
 // --- orchestration tests ---
+
+func TestRunScaffold_EmptyRepo(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: ""}}}
+	withFakeRunner(t, f)
+	kind, err := runScaffold(context.Background(), t.TempDir(), "app_x", "nestjs-react-fullstack")
+	if err != nil || kind != "init" {
+		t.Fatalf("kind=%q err=%v, want init", kind, err)
+	}
+	c := findCall(f.calls, "npx", miaodaCLIPkg)
+	if c == nil || !containsAll(c, "app", "init", "--template", "nestjs-react-fullstack", "--app-id", "app_x") {
+		t.Errorf("app init not invoked with expected args: %v", f.calls)
+	}
+}
+
+func TestRunScaffold_NonEmpty_SyncsWhenNoSteering(t *testing.T) {
+	dir := t.TempDir() // no steering dir, no meta.json
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: "src/x.ts\n"}}}
+	withFakeRunner(t, f)
+	kind, err := runScaffold(context.Background(), dir, "app_x", "nestjs-react-fullstack")
+	if err != nil || kind != "upgrade" {
+		t.Fatalf("kind=%q err=%v, want upgrade", kind, err)
+	}
+	if findCallArg(f.calls, "npx", "app", "upgrade") == nil {
+		t.Error("app upgrade not invoked")
+	}
+	if findCallArg(f.calls, "npx", "skills", "sync") == nil {
+		t.Error("skills sync should run when steering dir absent")
+	}
+}
+
+func TestRunScaffold_NonEmpty_SkipsSyncWhenSteeringExists(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, steeringRelPath), 0o755)
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: "src/x.ts\n"}}}
+	withFakeRunner(t, f)
+	if _, err := runScaffold(context.Background(), dir, "app_x", "nestjs-react-fullstack"); err != nil {
+		t.Fatal(err)
+	}
+	if findCallArg(f.calls, "npx", "skills", "sync") != nil {
+		t.Error("skills sync must be skipped when steering dir exists")
+	}
+}
+
+func TestRunScaffold_AppInitFailure(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"git ls-files":        {stdout: ""},
+		"npx " + miaodaCLIPkg: {stderr: "boom", err: errors.New("exit 1")},
+	}}
+	withFakeRunner(t, f)
+	if _, err := runScaffold(context.Background(), t.TempDir(), "app_x", "nestjs-react-fullstack"); err == nil {
+		t.Error("app init failure must propagate")
+	}
+}
 
 func TestAppsInit_HappyPathCleanTree(t *testing.T) {
 	f := &fakeCommandRunner{results: map[string]fakeCallResult{
