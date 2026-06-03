@@ -446,6 +446,49 @@ func commitAndPushIfDirty(ctx context.Context, dir string) (committed, pushed bo
 	return true, true, nil
 }
 
+// classifyPorcelain parses `git status --porcelain` output and reports whether
+// the changed paths include "app code" (anything outside .spark/ and .agent/)
+// and/or "Miaoda config" (.spark/ and .agent/). Used to decide which of the two
+// empty-repo init commits to make. Parsing is read-only — paths never flow back
+// into any command (staging uses hardcoded pathspecs, not these strings).
+func classifyPorcelain(status string) (hasAppCode, hasConfig bool) {
+	for _, line := range strings.Split(status, "\n") {
+		p := porcelainPath(line)
+		if p == "" {
+			continue
+		}
+		if isConfigPath(p) {
+			hasConfig = true
+		} else {
+			hasAppCode = true
+		}
+	}
+	return hasAppCode, hasConfig
+}
+
+// porcelainPath extracts the path from a `git status --porcelain` v1 line.
+// Format is "XY <path>" (2 status chars + space); rename/copy lines are
+// "XY <orig> -> <dest>" (dest is what matters). Quoted paths are unquoted.
+func porcelainPath(line string) string {
+	if len(line) < 4 {
+		return ""
+	}
+	p := line[3:]
+	if i := strings.Index(p, " -> "); i >= 0 {
+		p = p[i+len(" -> "):]
+	}
+	p = strings.TrimSpace(p)
+	p = strings.Trim(p, `"`)
+	return p
+}
+
+// isConfigPath reports whether p is the Miaoda app-config group: the .spark or
+// .agent directory itself, or anything under them. ".sparkrc" is NOT config.
+func isConfigPath(p string) bool {
+	return p == ".spark" || p == ".agent" ||
+		strings.HasPrefix(p, ".spark/") || strings.HasPrefix(p, ".agent/")
+}
+
 // gitErr builds a redacted, single-line error detail from stderr (falling back
 // to the exec error). Always redacts embedded credentials.
 func gitErr(stderr string, err error) string {

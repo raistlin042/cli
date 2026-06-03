@@ -745,3 +745,29 @@ func TestAppsInit_Req1_Wording(t *testing.T) {
 		t.Errorf("progress log should say 'Initializing app code': %q", stderr2.String())
 	}
 }
+
+func TestClassifyPorcelain(t *testing.T) {
+	cases := []struct {
+		name, status            string
+		wantAppCode, wantConfig bool
+	}{
+		{"empty", "", false, false},
+		{"app code only", " M src/x.ts\n?? package.json\n", true, false},
+		{"config only", "?? .spark/meta.json\n?? .agent/skills/steering/x.md\n", false, true},
+		{"both", " M src/x.ts\n?? .spark/meta.json\n", true, true},
+		{"rename to config", "R  old.txt -> .spark/meta.json\n", false, true},
+		{"rename to app code", "R  .spark/old -> src/new.ts\n", true, false},
+		{"quoted config path", "?? \".spark/with space.json\"\n", false, true},
+		{"spark prefix lookalike not config", "?? .sparkrc\n", true, false},
+		{"exact .spark dir", "?? .spark\n", false, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotApp, gotCfg := classifyPorcelain(c.status)
+			if gotApp != c.wantAppCode || gotCfg != c.wantConfig {
+				t.Errorf("classifyPorcelain(%q) = (app=%v,cfg=%v), want (app=%v,cfg=%v)",
+					c.status, gotApp, gotCfg, c.wantAppCode, c.wantConfig)
+			}
+		})
+	}
+}
