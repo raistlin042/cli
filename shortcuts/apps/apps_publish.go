@@ -15,11 +15,6 @@ import (
 )
 
 // AppsPublish creates a release for a Miaoda app.
-//
-// NOTE: the upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPICreateRelease,
-// endpoint 4177527) is not yet on the OpenAPI gateway. Execute is gated by
-// ensurePublishWired(); only --dry-run works until publishAPIWired flips.
-// See apps_publish_common.go.
 var AppsPublish = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish",
@@ -43,15 +38,11 @@ var AppsPublish = common.Shortcut{
 		branch := strings.TrimSpace(rctx.Str("branch"))
 		dry := common.NewDryRunAPI()
 		dry.POST(fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))).
-			Desc("Create release — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')").
+			Desc("Create a release").
 			Body(buildPublishBody(branch))
-		dry.Set("gateway_status", "not_deployed")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		if err := ensurePublishWired(); err != nil {
-			return err
-		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		branch := strings.TrimSpace(rctx.Str("branch"))
 		path := fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))

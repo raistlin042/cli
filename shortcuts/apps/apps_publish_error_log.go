@@ -15,10 +15,6 @@ import (
 )
 
 // AppsPublishErrorLog fetches the error log for a release.
-//
-// NOTE: upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPIGetReleaseErrorLogs,
-// endpoint 4177528) not yet on the OpenAPI gateway; Execute gated by
-// ensurePublishWired(). See apps_publish_common.go.
 var AppsPublishErrorLog = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish-error-log",
@@ -45,14 +41,10 @@ var AppsPublishErrorLog = common.Shortcut{
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
 		dry.GET(fmt.Sprintf(publishErrorLogPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
-			Desc("Get release error log — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')")
-		dry.Set("gateway_status", "not_deployed")
+			Desc("Get release error log")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		if err := ensurePublishWired(); err != nil {
-			return err
-		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		path := fmt.Sprintf(publishErrorLogPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))

@@ -15,10 +15,6 @@ import (
 )
 
 // AppsPublishStatus fetches a single release's detail by release ID.
-//
-// NOTE: upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPIGetRelease,
-// endpoint 4177526) not yet on the OpenAPI gateway; Execute gated by
-// ensurePublishWired(). See apps_publish_common.go.
 var AppsPublishStatus = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish-status",
@@ -45,14 +41,10 @@ var AppsPublishStatus = common.Shortcut{
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
 		dry.GET(fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
-			Desc("Get release detail — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')")
-		dry.Set("gateway_status", "not_deployed")
+			Desc("Get release detail")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		if err := ensurePublishWired(); err != nil {
-			return err
-		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		path := fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))

@@ -3,7 +3,19 @@
 
 package apps
 
-import "testing"
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/larksuite/cli/internal/cmdutil"
+	"github.com/larksuite/cli/internal/core"
+	"github.com/larksuite/cli/internal/httpmock"
+	"github.com/larksuite/cli/shortcuts/common"
+	"github.com/spf13/cobra"
+)
 
 func TestBuildPublishBody(t *testing.T) {
 	// branch included when non-empty; app_id is NOT in body (it's in the path)
@@ -27,5 +39,69 @@ func TestAppsPublishMeta(t *testing.T) {
 	}
 	if len(AppsPublish.Scopes) != 1 || AppsPublish.Scopes[0] != "spark:app:write" {
 		t.Errorf("scopes = %v", AppsPublish.Scopes)
+	}
+}
+
+// newPublishRuntimeContext builds a RuntimeContext whose cobra.Command has the
+// flags that AppsPublish.Execute reads (app-id, branch). Flag values are set
+// via the returned setter helper.
+func newPublishRuntimeContext(t *testing.T, appID, branch string) (*common.RuntimeContext, *bytes.Buffer, *httpmock.Registry) {
+	t.Helper()
+	cfg := &core.CliConfig{
+		AppID:      "test-app-" + strings.ToLower(t.Name()),
+		AppSecret:  "test-secret",
+		Brand:      core.BrandFeishu,
+		UserOpenId: "ou_test",
+	}
+	factory, stdoutBuf, _, reg := cmdutil.TestFactory(t, cfg)
+
+	cmd := &cobra.Command{Use: "test-publish"}
+	cmd.SetContext(context.Background())
+	cmd.Flags().String("app-id", "", "")
+	cmd.Flags().String("branch", "", "")
+	_ = cmd.Flags().Set("app-id", appID)
+	if branch != "" {
+		_ = cmd.Flags().Set("branch", branch)
+	}
+
+	rctx := common.TestNewRuntimeContextForAPI(context.Background(), cmd, cfg, factory, core.AsUser)
+	return rctx, stdoutBuf, reg
+}
+
+func TestAppsPublishExecute_Success(t *testing.T) {
+	rctx, stdoutBuf, reg := newPublishRuntimeContext(t, "app_x", "main")
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/spark/v1/apps/app_x/releases",
+		Body: map[string]interface{}{
+			"code": 0,
+			"msg":  "",
+			"data": map[string]interface{}{
+				"release_id": "123",
+				"status":     "publishing",
+			},
+		},
+	})
+
+	err := AppsPublish.Execute(context.Background(), rctx)
+	if err != nil {
+		t.Fatalf("Execute() = %v", err)
+	}
+
+	var env struct {
+		OK   bool                   `json:"ok"`
+		Data map[string]interface{} `json:"data"`
+	}
+	if err := json.Unmarshal(stdoutBuf.Bytes(), &env); err != nil {
+		t.Fatalf("unmarshal output: %v\nraw: %s", err, stdoutBuf.String())
+	}
+	if !env.OK {
+		t.Fatalf("expected ok=true, got: %s", stdoutBuf.String())
+	}
+	if env.Data["release_id"] != "123" {
+		t.Errorf("release_id = %v, want 123", env.Data["release_id"])
+	}
+	if env.Data["status"] != "publishing" {
+		t.Errorf("status = %v, want publishing", env.Data["status"])
 	}
 }

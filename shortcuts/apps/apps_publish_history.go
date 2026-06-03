@@ -15,10 +15,6 @@ import (
 )
 
 // AppsPublishHistory lists a Miaoda app's release history (most recent first).
-//
-// NOTE: upstream endpoint (lark.apaas.devops v1.0.381, rpc OpenAPIListReleases,
-// endpoint 4177529) not yet on the OpenAPI gateway; Execute gated by
-// ensurePublishWired(). See apps_publish_common.go.
 var AppsPublishHistory = common.Shortcut{
 	Service:     appsService,
 	Command:     "+publish-history",
@@ -46,15 +42,11 @@ var AppsPublishHistory = common.Shortcut{
 		pageToken := strings.TrimSpace(rctx.Str("page-token"))
 		dry := common.NewDryRunAPI()
 		dry.GET(fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))).
-			Desc("List release history — endpoint not yet deployed to the OpenAPI gateway; --dry-run preview only (a real call returns 'unavailable')").
+			Desc("List release history").
 			Params(buildHistoryQuery(status, limit, pageToken))
-		dry.Set("gateway_status", "not_deployed")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		if err := ensurePublishWired(); err != nil {
-			return err
-		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		status := strings.TrimSpace(rctx.Str("status"))
 		limit := rctx.Int("limit")
