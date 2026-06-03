@@ -353,7 +353,7 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		return output.Errorf(output.ExitAPI, "git_checkout", "git checkout %s failed: %s", defaultInitBranch, gitErr(stderr, err))
 	}
 
-	initLogf(rctx, "Scaffolding (%s)...", "running miaoda-cli")
+	initLogf(rctx, "Scaffolding (running miaoda-cli)...")
 	scaffold, err := runScaffold(ctx, dir, appID, resolveTemplate(rctx, appID))
 	if err != nil {
 		return err
