@@ -1,6 +1,6 @@
 ---
 name: lark-apps
-description: "妙搭（Miaoda）应用的开发与托管，覆盖三条路径：(1) 本地全栈开发——把应用源码拉到本地、用原生 git 和本地 code agent 编码调试、连开发库验证、再部署；(2) 本地 HTML / 静态网站一键托管成公网可分享 URL；(3) 云端会话开发——通过 CLI 给云端妙搭 Agent 发消息，让它在云端生成 / 迭代应用。当用户要创建 / 列出妙搭应用、把 HTML / 静态网站发布成可访问链接、拉取应用源码到本地、连数据库调试、部署应用、给云端 Agent 发消息开发，或提到妙搭 / Miaoda / app_id 时使用。不用于：上传普通文件到云空间 / 云盘（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
+description: "妙搭（Miaoda）应用的开发与托管，覆盖三条路径：(1) 本地全栈开发——把应用源码拉到本地、用原生 git 和本地 code agent 编码调试、连开发库验证、再部署；(2) 本地 HTML / 静态网站一键托管成公网可分享 URL；(3) 云端会话开发——通过 CLI 给云端妙搭 Agent 发消息，让它在云端生成 / 迭代应用。当用户要创建 / 列出妙搭应用、把 HTML / 静态网站发布成可访问链接、拉取应用源码到本地、查看或操作应用数据库（看表结构 / 跑 SQL / 初始化 dev 环境）、部署应用、给云端 Agent 发消息开发，或提到妙搭 / Miaoda / app_id 时使用。不用于：上传普通文件到云空间 / 云盘（用 lark-drive）、编辑飞书云文档内容（用 lark-doc）、创建飞书原生幻灯片 / 演示文稿（用 lark-slides）。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -19,7 +19,7 @@ metadata:
 
 ```bash
 # A. 本地全栈：建应用 → 拿凭证 → 原生 git clone → 起本地开发 → 编码 → 部署
-lark-cli apps +create --app-type fullstack --name "审批系统" --message "部门审批系统，支持登录、提交申请、多级审批"
+lark-cli apps +create --app-type full_stack --name "审批系统" --message "部门审批系统，支持登录、提交申请、多级审批"
 lark-cli apps +git-credential-init --app-id app_xxx       # 配 git 凭证（一次性，后续自动用）
 git clone <repo>; cd <repo>; npm install && npm dev run   # 起本地开发，自动拉 env（非阻塞）
 git push miaoda develop; lark-cli apps +publish --app-id app_xxx
@@ -82,6 +82,9 @@ lark-cli apps +session-read --session-id sess_xxx
 6. **设置 / 查看可用范围** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md) / [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)
 7. **初始化 / 查看 / 删除妙搭 Git 凭证（`apps +git-credential-init` / `apps +git-credential-list` / `apps +git-credential-remove`）** → 必读 [`lark-apps-git-credential.md`](references/lark-apps-git-credential.md)（只处理 Git credential，不与 setup / env pull 混用；输出 Repository URL 后继续用原生 Git；list 会自动扫描本地所有 app 配置，不需要 `--app-id`）
 8. **一键初始化本地开发仓库（`apps +init`）** → 必读 [`lark-apps-init.md`](references/lark-apps-init.md)（把 `+git-credential-init` → `git clone` → 切 `sprint/default` → npx 脚手架串成一步的便捷封装；**跑前应先问用户 clone 到哪并用 `--dir` 传入**，`--dir` 接受绝对 / 相对路径；想手动控制每步时改用第 2 / 7 条的原生 git 流程）
+9. **数据库表 / schema / SQL（`apps +db-table-list` / `+db-table-schema` / `+db-sql`）** → 必读 [`lark-apps-db-table-list.md`](references/lark-apps-db-table-list.md) / [`lark-apps-db-table-schema.md`](references/lark-apps-db-table-schema.md) / [`lark-apps-db-sql.md`](references/lark-apps-db-sql.md)（游标分页、`--format pretty` 出建表 DDL、SQL 多语句默认不包裹事务 + 失败逐条定位）
+10. **初始化 dev 环境（`apps +db-dev-init`）** → 必读 [`lark-apps-db-dev-init.md`](references/lark-apps-db-dev-init.md)（单库→online/dev，**不可逆**，需 `--yes` 确认）
+11. **发布管理（`apps +publish` / `+publish-history` / `+publish-status` / `+publish-error-log`）** → 必读对应参考文档：[`lark-apps-publish.md`](references/lark-apps-publish.md)、[`lark-apps-publish-history.md`](references/lark-apps-publish-history.md)、[`lark-apps-publish-status.md`](references/lark-apps-publish-status.md)、[`lark-apps-publish-error-log.md`](references/lark-apps-publish-error-log.md)。
 ## 身份与一次性授权
 
 妙搭应用是用户的个人资产，**统一使用 `--as user`**（默认 `--as auto` 会按 shortcut 声明落到 user）。
@@ -119,17 +122,18 @@ lark-cli auth login --domain apps
 
 | 命令 | 用途 | 状态 |
 |------|------|------|
-| `+db-multi-env-init` | 开启 dev/online 多环境库（high-risk，需 `--yes`；仅存量应用需手动跑） | 本期新增 |
-| `+db-table-list` | 列出某环境库的表 | 本期新增 |
-| `+db-table-schema` | 查看某张表的 schema | 本期新增 |
-| `+db-sql` | 经妙搭跑 SQL（SELECT / DML / DDL） | 本期新增 |
+| [`+db-dev-init`](references/lark-apps-db-dev-init.md) | 开启 dev/online 多环境库（high-risk，**不可逆**，需 `--yes`；仅存量应用需手动跑） | 本期新增 |
+| [`+db-table-list`](references/lark-apps-db-table-list.md) | 列出某环境库的表（游标分页，含预估行数 / 占用空间） | 本期新增 |
+| [`+db-table-schema`](references/lark-apps-db-table-schema.md) | 查看某张表的 schema（默认结构化；`--format pretty` 出建表 DDL） | 本期新增 |
+| [`+db-sql`](references/lark-apps-db-sql.md) | 经妙搭跑 SQL（SELECT / DML / DDL；多语句默认不包裹事务，失败逐条定位） | 本期新增 |
 
 ### 部署
 | 命令 | 用途 | 状态 |
 |------|------|------|
-| `+publish` | 触发服务端发布当前 `develop`（成功后自动 fast-forward `main`；dev 的库结构变更一并发布到 online） | 本期新增 |
-| `+publish-status` | 查最近一次 / 指定发布的状态 | 本期新增 |
-| `+publish-history` | 查发布历史 | 本期新增 |
+| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布（release），返回 `{ release_id, status }`（成功后服务端发布 `develop`；dev 库结构变更一并发布到 online） | 已上线 |
+| [`+publish-status`](references/lark-apps-publish-status.md) | 按 `--release-id` 查单个发布的状态 / 详情 | 已上线 |
+| [`+publish-history`](references/lark-apps-publish-history.md) | 分页查发布历史（`--status publishing\|finished\|failed` / `--limit 1-500` / `--page-token`） | 已上线 |
+| [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 按 `--release-id` 查失败发布的错误日志（失败步骤 + `error_log`） | 已上线 |
 | [`+html-publish`](references/lark-apps-html-publish.md) | 把本地 HTML 文件 / 目录打包发布（`--path`），返回访问 URL | 已有 |
 
 ### 云端会话开发
@@ -165,4 +169,4 @@ lark-cli auth login --domain apps
 - **拿到存量应用的 `app_id`（按顺序试，不要直接问用户要）**：
   1. 用户已给 `app_id` 或**妙搭链接**（`https://miaoda.feishu.cn/app/app_xxx` → 取 `/app/` 后的 segment）→ 用它；
   2. 已在本地项目目录里 → 读项目根的 **`.spark/meta.json`**（记录了 `app_id`）；
-  3. 都没有 → **`+list --filter <关键词>`** 按应用名 / 描述过滤定位。
+  3. 都没有 → **`+list --keyword <关键词>`** 按应用名 / 描述过滤定位。
