@@ -274,12 +274,65 @@ func TestRunScaffold_AppInitFailure(t *testing.T) {
 	}
 }
 
+func TestAppsInit_EmptyRepo_EndToEnd(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},                // empty repo -> app init
+		"git status":      {stdout: " M src/app.ts\n"}, // scaffold produced changes
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	data := parseEnvelopeData(t, stdout)
+	if data["scaffold"] != "init" {
+		t.Errorf("scaffold=%v, want init", data["scaffold"])
+	}
+	if data["committed"] != true || data["pushed"] != true {
+		t.Errorf("committed/pushed = %v/%v, want true/true", data["committed"], data["pushed"])
+	}
+	if _, ok := data["npx_skipped"]; ok {
+		t.Error("npx_skipped must be removed")
+	}
+	if findCall(f.calls, "npx", miaodaCLIPkg) == nil {
+		t.Error("npx scaffold not invoked")
+	}
+}
+
+func TestAppsInit_AlreadyInitialized_ShortCircuit(t *testing.T) {
+	dir := relCloneDir(t)
+	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, metaRelPath), []byte(`{"app_id":"whatever"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	data := parseEnvelopeData(t, stdout)
+	if data["scaffold"] != "already_initialized" {
+		t.Errorf("scaffold=%v, want already_initialized", data["scaffold"])
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("no runner calls expected on short-circuit; got %v", f.calls)
+	}
+}
+
 func TestAppsInit_HappyPathCleanTree(t *testing.T) {
 	f := &fakeCommandRunner{results: map[string]fakeCallResult{
 		"credential-init": credInitOK("http://u:t@h/app_x.git"),
 		"git clone":       {},
 		"git checkout":    {},
-		"git status":      {},
+		"git ls-files":    {stdout: ""}, // empty repo -> app init scaffold
+		"git status":      {},           // clean tree after scaffold -> no commit/push
 	}}
 	withFakeRunner(t, f)
 	factory, stdout, _ := newAppsExecuteFactory(t)
@@ -296,8 +349,11 @@ func TestAppsInit_HappyPathCleanTree(t *testing.T) {
 	if data["pushed"] != false {
 		t.Errorf("pushed = %v, want false", data["pushed"])
 	}
-	if data["npx_skipped"] != true {
-		t.Errorf("npx_skipped = %v, want true", data["npx_skipped"])
+	if data["scaffold"] != "init" {
+		t.Errorf("scaffold = %v, want init", data["scaffold"])
+	}
+	if _, ok := data["npx_skipped"]; ok {
+		t.Error("npx_skipped must be removed")
 	}
 	if data["repository_url"] != "http://***@h/app_x.git" {
 		t.Errorf("repository_url = %v, want redacted http://***@h/app_x.git", data["repository_url"])
@@ -324,6 +380,7 @@ func TestAppsInit_DirtyTreeCommitPush(t *testing.T) {
 		"credential-init": credInitOK("http://u:t@h/app_x.git"),
 		"git clone":       {},
 		"git checkout":    {},
+		"git ls-files":    {stdout: "src/x.ts\n"}, // non-empty repo -> app upgrade scaffold
 		"git status":      {stdout: " M file.txt"},
 	}}
 	withFakeRunner(t, f)
@@ -349,6 +406,9 @@ func TestAppsInit_DirtyTreeCommitPush(t *testing.T) {
 	}
 	if data["pushed"] != true {
 		t.Errorf("pushed = %v, want true", data["pushed"])
+	}
+	if data["scaffold"] != "upgrade" {
+		t.Errorf("scaffold = %v, want upgrade", data["scaffold"])
 	}
 }
 
@@ -412,6 +472,7 @@ func TestAppsInit_PushFailure(t *testing.T) {
 		"credential-init": credInitOK("http://u:t@h/app_x.git"),
 		"git clone":       {},
 		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
 		"git status":      {stdout: " M file.txt"},
 		"git push":        {err: errors.New("exit 1")},
 	}}
@@ -461,6 +522,7 @@ func TestAppsInit_AsPassthrough(t *testing.T) {
 		"credential-init": credInitOK("http://u:t@h/app_x.git"),
 		"git clone":       {},
 		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
 		"git status":      {},
 	}}
 	withFakeRunner(t, f)

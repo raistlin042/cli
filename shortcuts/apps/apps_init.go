@@ -32,9 +32,6 @@ const (
 	steeringRelPath = ".agent/skills/steering"
 )
 
-// TODO(apps-init): run the npx scaffold command here once it is defined.
-// const initNpxCommand = "npx <scaffold-cmd>"
-
 // initRunner is the commandRunner used by +init. Package-level so unit tests
 // can swap in a fakeCommandRunner. Production uses execCommandRunner.
 var initRunner commandRunner = execCommandRunner{}
@@ -71,20 +68,22 @@ var AppsInit = common.Shortcut{
 	},
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
+		template := strings.TrimSpace(rctx.Str("template"))
 		dry := common.NewDryRunAPI().
-			Desc("Initialize Miaoda app repository (orchestrates credential-init, git clone, checkout, optional commit/push)").
+			Desc("Initialize Miaoda app repository (credential-init, clone, checkout, npx scaffold, optional commit/push)").
 			Set("credential_init", fmt.Sprintf("apps +git-credential-init --app-id %s --format json", appID)).
 			Set("checkout", "git checkout "+defaultInitBranch).
-			Set("commit_push", "conditional: git add -A + commit + push origin "+defaultInitBranch+" only when the working tree has changes (npx step skipped this release)").
-			Set("npx_skipped", true)
+			Set("scaffold", fmt.Sprintf("empty repo: npx %s app init --template %s --app-id %s; non-empty: npx %s app upgrade + .spark/meta.json app_id patch + conditional skills sync", miaodaCLIPkg, template, appID, miaodaCLIPkg)).
+			Set("commit_push", "conditional: git add -A + commit + push origin "+defaultInitBranch+" when the working tree has changes").
+			Set("template", template)
 		dir, err := resolveTargetPath(rctx, appID)
-		if err == nil {
-			err = ensureEmptyDir(dir)
-		}
 		if err != nil {
-			// Advisory preview: surface the rejection as a field so --dry-run still exits 0.
 			dry.Set("dir_error", err.Error())
 			dir = defaultCloneDir(appID)
+		} else if isAlreadyInitialized(dir) {
+			dry.Set("already_initialized", true)
+		} else if e := ensureEmptyDir(dir); e != nil {
+			dry.Set("dir_error", e.Error())
 		}
 		dry.Set("clone", fmt.Sprintf("git clone -- <repository_url-from-credential-init> %s", dir))
 		dry.Set("clone_path", dir)
@@ -269,16 +268,39 @@ func validateRepoURLScheme(repoURL string) error {
 func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	appID := strings.TrimSpace(rctx.Str("app-id"))
 
+	dir, err := resolveTargetPath(rctx, appID)
+	if err != nil {
+		return err
+	}
+
+	// Already-initialized short-circuit: a dir containing .spark/meta.json is an
+	// initialized Miaoda app repo -> friendly no-op, no clone/scaffold.
+	if isAlreadyInitialized(dir) {
+		out := map[string]interface{}{
+			"app_id":     appID,
+			"clone_path": dir,
+			"scaffold":   "already_initialized",
+			"committed":  false,
+			"pushed":     false,
+			"message":    "Repository already initialized. You can start developing.",
+		}
+		rctx.OutFormat(out, nil, func(w io.Writer) {
+			fmt.Fprintf(w, "✓ Already initialized at %s\n", dir)
+			fmt.Fprintln(w, "仓库已初始化完成，可以开始开发了。")
+		})
+		return nil
+	}
+
 	if _, err := exec.LookPath("git"); err != nil {
 		return output.ErrWithHint(output.ExitInternal, "dependency",
 			"git executable not found on PATH", "install git and ensure it is on your PATH")
 	}
-
-	dir, err := resolveTargetPath(rctx, appID)
-	if err == nil {
-		err = ensureEmptyDir(dir)
+	if _, err := exec.LookPath("npx"); err != nil {
+		return output.ErrWithHint(output.ExitInternal, "dependency",
+			"npx executable not found on PATH", "install Node.js (which provides npx) and ensure it is on your PATH")
 	}
-	if err != nil {
+
+	if err := ensureEmptyDir(dir); err != nil {
 		return err
 	}
 
@@ -293,13 +315,14 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	if _, stderr, err := initRunner.Run(ctx, "", "git", "clone", "--", repoURL, dir); err != nil {
 		return output.Errorf(output.ExitAPI, "git_clone", "git clone failed: %s", gitErr(stderr, err))
 	}
-
 	if _, stderr, err := initRunner.Run(ctx, dir, "git", "checkout", defaultInitBranch); err != nil {
 		return output.Errorf(output.ExitAPI, "git_checkout", "git checkout %s failed: %s", defaultInitBranch, gitErr(stderr, err))
 	}
 
-	// npx step skipped this release.
-	// TODO(apps-init): run the npx scaffold command here once defined.
+	scaffold, err := runScaffold(ctx, dir, appID, strings.TrimSpace(rctx.Str("template")))
+	if err != nil {
+		return err
+	}
 
 	committed, pushed, err := commitAndPushIfDirty(ctx, dir)
 	if err != nil {
@@ -311,14 +334,14 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		"repository_url": redactURLCredentials(repoURL),
 		"branch":         defaultInitBranch,
 		"clone_path":     dir,
+		"scaffold":       scaffold,
 		"committed":      committed,
 		"pushed":         pushed,
-		"npx_skipped":    true,
 		"message":        "Repository initialized. You can start developing.",
 	}
 	rctx.OutFormat(out, nil, func(w io.Writer) {
 		fmt.Fprintf(w, "✓ Repository initialized at %s\n", dir)
-		fmt.Fprintf(w, "  branch: %s\n", defaultInitBranch)
+		fmt.Fprintf(w, "  branch: %s\n  scaffold: %s\n", defaultInitBranch, scaffold)
 		fmt.Fprintln(w, "仓库已初始化完成，可以开始开发了。")
 	})
 	return nil
