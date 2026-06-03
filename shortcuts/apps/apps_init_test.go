@@ -250,15 +250,21 @@ func containsAll(call []string, subs ...string) bool {
 // --- orchestration tests ---
 
 func TestRunScaffold_EmptyRepo(t *testing.T) {
-	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: ""}}}
-	withFakeRunner(t, f)
-	kind, err := runScaffold(context.Background(), t.TempDir(), "app_x", "nestjs-react-fullstack")
-	if err != nil || kind != "init" {
-		t.Fatalf("kind=%q err=%v, want init", kind, err)
-	}
-	c := findCall(f.calls, "npx", miaodaCLIPkg)
-	if c == nil || !containsAll(c, "app", "init", "--template", "nestjs-react-fullstack", "--app-id", "app_x") {
-		t.Errorf("app init not invoked with expected args: %v", f.calls)
+	// Both a truly empty tree and a tree carrying only the seed README.md count
+	// as empty and must take the `app init` path.
+	for _, ls := range []string{"", "README.md\n"} {
+		t.Run("ls="+ls, func(t *testing.T) {
+			f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: ls}}}
+			withFakeRunner(t, f)
+			kind, err := runScaffold(context.Background(), t.TempDir(), "app_x", "nestjs-react-fullstack")
+			if err != nil || kind != "init" {
+				t.Fatalf("ls=%q kind=%q err=%v, want init", ls, kind, err)
+			}
+			c := findCall(f.calls, "npx", miaodaCLIPkg)
+			if c == nil || !containsAll(c, "app", "init", "--template", "nestjs-react-fullstack", "--app-id", "app_x") {
+				t.Errorf("app init not invoked with expected args: %v", f.calls)
+			}
+		})
 	}
 }
 
@@ -427,8 +433,10 @@ func TestAppsInit_DirtyTreeCommitPush(t *testing.T) {
 	if findCall(f.calls, "git", "add") == nil {
 		t.Errorf("git add not recorded; calls=%v", f.calls)
 	}
-	if findCall(f.calls, "git", "commit") == nil {
+	if commit := findCall(f.calls, "git", "commit"); commit == nil {
 		t.Errorf("git commit not recorded; calls=%v", f.calls)
+	} else if !containsAll(commit, "--no-verify") {
+		t.Errorf("git commit missing --no-verify; got %v", commit)
 	}
 	if findCall(f.calls, "git", "push") == nil {
 		t.Errorf("git push not recorded; calls=%v", f.calls)
@@ -641,16 +649,23 @@ func TestHasSteeringSkills(t *testing.T) {
 }
 
 func TestIsEmptyRepo(t *testing.T) {
-	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: ""}}}
-	withFakeRunner(t, f)
-	empty, err := isEmptyRepo(context.Background(), t.TempDir())
-	if err != nil || !empty {
-		t.Errorf("empty ls-files -> empty=true; got %v err=%v", empty, err)
+	cases := []struct {
+		name, ls string
+		want     bool
+	}{
+		{"zero files", "", true},
+		{"only README.md", "README.md\n", true},
+		{"README + business file", "README.md\nsrc/x.ts\n", false},
+		{"business file only", "src/x.ts\n", false},
 	}
-	f2 := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: "README.md\n"}}}
-	withFakeRunner(t, f2)
-	empty, err = isEmptyRepo(context.Background(), t.TempDir())
-	if err != nil || empty {
-		t.Errorf("non-empty ls-files -> empty=false; got %v err=%v", empty, err)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: c.ls}}}
+			withFakeRunner(t, f)
+			got, err := isEmptyRepo(context.Background(), t.TempDir())
+			if err != nil || got != c.want {
+				t.Errorf("ls=%q -> empty=%v err=%v, want %v", c.ls, got, err, c.want)
+			}
+		})
 	}
 }

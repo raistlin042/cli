@@ -31,6 +31,7 @@ const (
 	defaultTemplate = "nestjs-react-fullstack"
 	metaRelPath     = ".spark/meta.json"
 	steeringRelPath = ".agent/skills/steering"
+	seedReadme      = "README.md"
 )
 
 // initRunner is the commandRunner used by +init. Package-level so unit tests
@@ -221,14 +222,22 @@ func hasSteeringSkills(dir string) bool {
 	return err == nil && info.IsDir()
 }
 
-// isEmptyRepo reports whether the checked-out branch has zero tracked files,
-// via `git ls-files`. Empty output = empty repo.
+// isEmptyRepo reports whether the checked-out branch has no tracked files
+// other than the backend's default seed README.md. `git ls-files` listing
+// nothing — or only README.md — counts as empty (→ scaffold via `app init`).
 func isEmptyRepo(ctx context.Context, dir string) (bool, error) {
 	stdout, stderr, err := initRunner.Run(ctx, dir, "git", "ls-files")
 	if err != nil {
 		return false, output.Errorf(output.ExitAPI, "git_ls_files", "git ls-files failed: %s", gitErr(stderr, err))
 	}
-	return strings.TrimSpace(stdout) == "", nil
+	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+		f := strings.TrimSpace(line)
+		if f == "" || f == seedReadme {
+			continue
+		}
+		return false, nil // a non-README tracked file → non-empty repo
+	}
+	return true, nil
 }
 
 // runScaffold runs the npx scaffolding step inside the cloned repo (cwd=dir).
@@ -240,10 +249,9 @@ func runScaffold(ctx context.Context, dir, appID, template string) (string, erro
 		return "", err
 	}
 	if empty {
-		// TODO(apps-init): emptiness via `git ls-files` assumes the backend creates
-		// a truly empty repo (no seed files like README/.gitignore). If seed files
-		// can appear, switch to a marker-file check (e.g. package.json presence).
-		// Confirm the backend's new-repo contents.
+		// isEmptyRepo treats a repo with no tracked files — or only the backend's
+		// seed README.md — as empty. If other seed files (e.g. .gitignore) can
+		// appear, extend isEmptyRepo's allow-list accordingly.
 		if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "app", "init", "--template", template, "--app-id", appID); err != nil {
 			return "", output.Errorf(output.ExitAPI, "npx_app_init", "npx app init failed: %s", gitErr(stderr, err))
 		}
@@ -420,7 +428,7 @@ func commitAndPushIfDirty(ctx context.Context, dir string) (committed, pushed bo
 	if _, se, e := initRunner.Run(ctx, dir, "git", "add", "-A"); e != nil {
 		return false, false, output.Errorf(output.ExitAPI, "git_add", "git add failed: %s", gitErr(se, e))
 	}
-	if _, se, e := initRunner.Run(ctx, dir, "git", "commit", "-m", initCommitMessage); e != nil {
+	if _, se, e := initRunner.Run(ctx, dir, "git", "commit", "--no-verify", "-m", initCommitMessage); e != nil {
 		return false, false, output.Errorf(output.ExitAPI, "git_commit", "git commit failed: %s", gitErr(se, e))
 	}
 	if _, se, e := initRunner.Run(ctx, dir, "git", "push", "origin", defaultInitBranch); e != nil {
