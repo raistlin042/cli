@@ -232,6 +232,11 @@ func isEmptyRepo(ctx context.Context, dir string) (bool, error) {
 	}
 	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
 		f := strings.TrimSpace(line)
+		// Match the seed exactly (case- and path-sensitive): only a root-level
+		// "README.md" is the backend's default seed. A docs/README.md or readme.md
+		// is treated as real content (→ non-empty), which is the safe direction
+		// (skip scaffolding rather than risk overwriting). Extend this allow-list
+		// here if the backend's seed set grows.
 		if f == "" || f == seedReadme {
 			continue
 		}
@@ -428,6 +433,10 @@ func commitAndPushIfDirty(ctx context.Context, dir string) (committed, pushed bo
 	if _, se, e := initRunner.Run(ctx, dir, "git", "add", "-A"); e != nil {
 		return false, false, output.Errorf(output.ExitAPI, "git_add", "git add failed: %s", gitErr(se, e))
 	}
+	// --no-verify skips the scaffold repo's pre-commit / commit-msg hooks, which
+	// the miaoda template may carry and which would otherwise block or prompt on
+	// this automated init commit. Local hooks only — signing/remote checks are
+	// unaffected.
 	if _, se, e := initRunner.Run(ctx, dir, "git", "commit", "--no-verify", "-m", initCommitMessage); e != nil {
 		return false, false, output.Errorf(output.ExitAPI, "git_commit", "git commit failed: %s", gitErr(se, e))
 	}
