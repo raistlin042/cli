@@ -4,8 +4,6 @@
 
 分页查询指定妙搭应用的发布历史，结果按最新发布排在最前。对应 `GET /open-apis/spark/v1/apps/:app_id/releases`，`--status` / `--limit` / `--page-token` 均映射为 HTTP query 参数。
 
-> **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
-
 ## 命令
 
 ```bash
@@ -39,7 +37,7 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 
 ## 返回值
 
-**成功（网关就绪后）：**
+**成功：**
 
 ```json
 {
@@ -59,24 +57,11 @@ lark-cli apps +publish-history --app-id app_xxx --dry-run
 }
 ```
 
-**`--format table` 视图（网关就绪后）：**
+**`--format table` 视图：**
 
 ```
 release_id    status    created_at        updated_at
 release_yyy   finished  1748000000000     1748000120000
-```
-
-**接口未上线（当前行为）：**
-
-```json
-{
-  "ok": false,
-  "error": {
-    "type": "unavailable",
-    "message": "apps publish endpoints are not yet deployed to the OpenAPI gateway",
-    "hint": "..."
-  }
-}
 ```
 
 ## 字段语义

@@ -4,8 +4,6 @@
 
 查询指定发布的状态和详情。通常在触发 `apps +publish` 后，用返回的 `release_id` 轮询进度。对应 `GET /open-apis/spark/v1/apps/:app_id/releases/:release_id`。
 
-> **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
-
 > **⚠️ 注意：** 这里的「发布ID / release_id」是妙搭**发布** ID（`apps +publish` 返回的 `release_id`），**不是飞书审批实例号**。查发布进度用 `apps +publish-status`、查失败原因用 `apps +publish-error-log`；不要路由到 lark-approval / 审批相关命令。
 
 ## 命令
@@ -27,7 +25,7 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
 
 ## 返回值
 
-**成功（网关就绪后）：**
+**成功：**
 
 ```json
 {
@@ -39,19 +37,6 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
       "created_at": 1748000000000,
       "updated_at": 1748000120000
     }
-  }
-}
-```
-
-**接口未上线（当前行为）：**
-
-```json
-{
-  "ok": false,
-  "error": {
-    "type": "unavailable",
-    "message": "apps publish endpoints are not yet deployed to the OpenAPI gateway",
-    "hint": "..."
   }
 }
 ```
@@ -74,7 +59,7 @@ lark-cli apps +publish-status --app-id app_xxx --release-id release_yyy --dry-ru
 
 ## 典型场景
 
-### 场景 1：轮询发布进度（网关就绪后）
+### 场景 1：轮询发布进度
 
 ```bash
 # 触发发布

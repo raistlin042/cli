@@ -4,8 +4,6 @@
 
 获取指定发布的错误日志，列出失败步骤及其错误原因。通常在 `apps +publish-status` 返回 `status=failed` 后调用，定位失败根因。对应 `GET /open-apis/spark/v1/apps/:app_id/releases/:release_id/error_logs`。
 
-> **⚠️ 过渡期说明：** 这些接口尚未部署到 OpenAPI 网关，当前仅 `--dry-run` 可用；不带 `--dry-run` 的真实调用会返回结构化 "unavailable" 错误（exit 1）。等网关部署后启用。
-
 > **⚠️ 注意：** 这里的「发布ID / release_id」是妙搭**发布** ID（`apps +publish` 返回的 `release_id`），**不是飞书审批实例号**。查发布进度用 `apps +publish-status`、查失败原因用 `apps +publish-error-log`；不要路由到 lark-approval / 审批相关命令。
 
 ## 命令
@@ -30,7 +28,7 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry
 
 ## 返回值
 
-**成功（网关就绪后）：**
+**成功：**
 
 ```json
 {
@@ -47,26 +45,13 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy --dry
 }
 ```
 
-**`--format table` 视图（网关就绪后）：**
+**`--format table` 视图：**
 
 ```
 status: Failed
 
 step             error_log
 frontend-build   dependency conflict: react@18 vs react@17
-```
-
-**接口未上线（当前行为）：**
-
-```json
-{
-  "ok": false,
-  "error": {
-    "type": "unavailable",
-    "message": "apps publish endpoints are not yet deployed to the OpenAPI gateway",
-    "hint": "..."
-  }
-}
 ```
 
 **Validate 失败：**

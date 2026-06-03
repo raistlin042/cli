@@ -30,7 +30,7 @@ lark-cli apps +access-scope-set --app-id app_xxx --scope tenant
 4. **发布 HTML / PPT / 静态网站（`apps +html-publish`）** → 必读 [`lark-apps-html-publish.md`](references/lark-apps-html-publish.md)（`--path` 文件 vs 目录、tar.gz 打包不做过滤）
 5. **设置可用范围（`apps +access-scope-set`）** → 必读 [`lark-apps-access-scope-set.md`](references/lark-apps-access-scope-set.md)（specific / public / tenant 三态互斥校验、targets JSON 结构）
 6. **查看当前可用范围（`apps +access-scope-get`）** → 必读 [`lark-apps-access-scope-get.md`](references/lark-apps-access-scope-get.md)（响应 scope 枚举 `All` / `Tenant` / `Range` 与 CLI 的 `public` / `tenant` / `specific` 映射；含 jq 复制 scope 配置示例）
-7. **发布管理（`apps +publish` / `+publish-history` / `+publish-status` / `+publish-error-log`）** → 必读对应参考文档：[`lark-apps-publish.md`](references/lark-apps-publish.md)、[`lark-apps-publish-history.md`](references/lark-apps-publish-history.md)、[`lark-apps-publish-status.md`](references/lark-apps-publish-status.md)、[`lark-apps-publish-error-log.md`](references/lark-apps-publish-error-log.md)。⚠️ 发布管理 4 命令的上游接口尚未上 OpenAPI 网关，当前仅 `--dry-run` 可用，真实调用返回 unavailable（exit 1）；网关部署后启用。
+7. **发布管理（`apps +publish` / `+publish-history` / `+publish-status` / `+publish-error-log`）** → 必读对应参考文档：[`lark-apps-publish.md`](references/lark-apps-publish.md)、[`lark-apps-publish-history.md`](references/lark-apps-publish-history.md)、[`lark-apps-publish-status.md`](references/lark-apps-publish-status.md)、[`lark-apps-publish-error-log.md`](references/lark-apps-publish-error-log.md)。
 
 **未读完以上文件就执行相应操作会导致参数选择错误、互斥违反或文件被错误打包。**
 
