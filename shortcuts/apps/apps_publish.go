@@ -20,7 +20,7 @@ var AppsPublish = common.Shortcut{
 	Command:     "+publish",
 	Description: "Create a release for a Miaoda app (returns release_id for status polling)",
 	Risk:        "write",
-	Scopes:      []string{"spark:app:write"},
+	Scopes:      []string{"spark:app:publish"},
 	AuthTypes:   []string{"user"},
 	HasFormat:   true,
 	Flags: []common.Flag{

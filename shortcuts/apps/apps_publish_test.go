@@ -37,7 +37,7 @@ func TestAppsPublishMeta(t *testing.T) {
 	if AppsPublish.Command != "+publish" || AppsPublish.Risk != "write" {
 		t.Errorf("meta mismatch: %+v", AppsPublish)
 	}
-	if len(AppsPublish.Scopes) != 1 || AppsPublish.Scopes[0] != "spark:app:write" {
+	if len(AppsPublish.Scopes) != 1 || AppsPublish.Scopes[0] != "spark:app:publish" {
 		t.Errorf("scopes = %v", AppsPublish.Scopes)
 	}
 }
