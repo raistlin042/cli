@@ -6,7 +6,7 @@
 
 > 💡 **跑 `+init` 前先问用户「clone 到哪」：** `+init` 会把仓库克隆到本地磁盘。Agent **应先询问用户希望克隆的目标目录**，并通过 `--dir` 传入；`--dir` 接受**绝对路径或相对路径**。用户没有偏好时，默认克隆到 `./<app-id>`。
 
-> ⚠️ **依赖未发布：** `+init` 依赖 `apps +git-credential-init` 命令，该命令**当前版本尚未发布**。在它就绪前，`+init` 会以结构化 `credential_init` 错误失败——这是预期行为，不是命令本身坏了。
+> ⚠️ **依赖 `apps +git-credential-init`：** `+init` 内部 shell out 调用 `apps +git-credential-init` 签发仓库凭据。该命令已实现并注册。运行时若凭据签发失败或远端不可达，`+init` 会在该步以结构化 `credential_init` 错误失败——这是预期的错误回传，不是命令本身坏了。
 
 ## 命令
 
@@ -126,7 +126,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 | 场景 | 命令 |
 |---|---|
 | 创建应用拿到 app_id | `apps +create` |
-| 签发仓库凭据（`+init` 内部依赖，尚未发布） | `apps +git-credential-init` |
+| 签发仓库凭据（`+init` 内部依赖） | `apps +git-credential-init` |
 
 ## 参考
 
