@@ -12,9 +12,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/larksuite/cli/internal/output"
-	"github.com/larksuite/cli/internal/validate"
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
@@ -24,6 +24,13 @@ const defaultInitBranch = "sprint/default"
 // initCommitMessage is the fixed commit subject used when the post-init working
 // tree has changes to push. Fixed constant — never interpolates user input.
 const initCommitMessage = "chore: scaffold app via lark-cli apps +init"
+
+const (
+	miaodaCLIPkg    = "@lark-apaas/miaoda-cli@alpha"
+	defaultTemplate = "nestjs-react-fullstack"
+	metaRelPath     = ".spark/meta.json"
+	steeringRelPath = ".agent/skills/steering"
+)
 
 // TODO(apps-init): run the npx scaffold command here once it is defined.
 // const initNpxCommand = "npx <scaffold-cmd>"
@@ -53,7 +60,8 @@ var AppsInit = common.Shortcut{
 		// {"ok":false,"error":{...}} envelope for missing --app-id, so the empty
 		// check lives in Validate (output.ErrValidation -> ExitValidation=2).
 		{Name: "app-id", Desc: "Miaoda app ID"},
-		{Name: "dir", Desc: "clone target directory (default ./<app-id>)"},
+		{Name: "dir", Desc: "clone target directory; absolute or relative path (default ./<app-id>)"},
+		{Name: "template", Default: defaultTemplate, Desc: "scaffold template used for an empty repo (app init)"},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
@@ -69,7 +77,10 @@ var AppsInit = common.Shortcut{
 			Set("checkout", "git checkout "+defaultInitBranch).
 			Set("commit_push", "conditional: git add -A + commit + push origin "+defaultInitBranch+" only when the working tree has changes (npx step skipped this release)").
 			Set("npx_skipped", true)
-		dir, err := resolveCloneDir(rctx, appID)
+		dir, err := resolveTargetPath(rctx, appID)
+		if err == nil {
+			err = ensureEmptyDir(dir)
+		}
 		if err != nil {
 			// Advisory preview: surface the rejection as a field so --dry-run still exits 0.
 			dry.Set("dir_error", err.Error())
@@ -87,32 +98,44 @@ func defaultCloneDir(appID string) string {
 	return filepath.Join(".", appID)
 }
 
-// resolveCloneDir computes the absolute clone target from --dir (or the
-// ./<app-id> default), validates it against path-traversal, and refuses to
-// clone into an existing non-empty directory.
-func resolveCloneDir(rctx *common.RuntimeContext, appID string) (string, error) {
+// resolveTargetPath computes the absolute clone target from --dir (or the
+// ./<app-id> default). Unlike the prior SafeInputPath approach it does NOT
+// confine to cwd — the clone destination is user-chosen (the skill prompts for
+// it). It rejects empty input and control characters; symlink/no-clobber
+// guarding happens in ensureEmptyDir.
+func resolveTargetPath(rctx *common.RuntimeContext, appID string) (string, error) {
 	raw := strings.TrimSpace(rctx.Str("dir"))
 	if raw == "" {
 		raw = defaultCloneDir(appID)
 	}
-	// SafeInputPath returns an absolute, cwd-joined, traversal-checked path.
-	abs, err := validate.SafeInputPath(raw)
-	if err != nil {
-		return "", output.ErrValidation("--dir is not a safe path: %v", err)
+	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+		return "", output.ErrValidation("--dir must not contain control characters")
 	}
-	if err := ensureEmptyDir(abs); err != nil {
-		return "", err
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", output.ErrValidation("--dir cannot be resolved: %v", err)
 	}
 	return abs, nil
 }
 
-// ensureEmptyDir returns a validation error if dir exists and is non-empty.
-// A non-existent path is fine — git clone creates it.
+// ensureEmptyDir refuses to clone into an existing non-empty dir, a symlink, or
+// a non-directory. A non-existent path is fine (git clone creates it). Uses
+// Lstat so a symlinked target is rejected rather than followed.
 func ensureEmptyDir(dir string) error {
-	entries, err := os.ReadDir(dir)
+	info, err := os.Lstat(dir)
 	if os.IsNotExist(err) {
 		return nil
 	}
+	if err != nil {
+		return output.ErrValidation("--dir cannot be read: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return output.ErrValidation("--dir must not be a symlink: %q", dir)
+	}
+	if !info.IsDir() {
+		return output.ErrValidation("--dir exists and is not a directory: %q", dir)
+	}
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return output.ErrValidation("--dir cannot be read: %v", err)
 	}
@@ -120,6 +143,14 @@ func ensureEmptyDir(dir string) error {
 		return output.ErrValidation("target directory %q already exists and is not empty", dir)
 	}
 	return nil
+}
+
+// isAlreadyInitialized reports whether dir is an already-initialized Miaoda app
+// repo, detected by the presence of <dir>/.spark/meta.json (regardless of its
+// app_id value). Used to short-circuit +init into a friendly no-op.
+func isAlreadyInitialized(dir string) bool {
+	info, err := os.Stat(filepath.Join(dir, metaRelPath))
+	return err == nil && !info.IsDir()
 }
 
 // parseRepoURLFromEnvelope extracts data.repository_url from a lark-cli JSON
@@ -162,7 +193,10 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 			"git executable not found on PATH", "install git and ensure it is on your PATH")
 	}
 
-	dir, err := resolveCloneDir(rctx, appID)
+	dir, err := resolveTargetPath(rctx, appID)
+	if err == nil {
+		err = ensureEmptyDir(dir)
+	}
 	if err != nil {
 		return err
 	}

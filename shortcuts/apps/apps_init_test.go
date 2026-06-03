@@ -11,7 +11,71 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/larksuite/cli/shortcuts/common"
 )
+
+// testRuntimeWithDir builds a *common.RuntimeContext whose backing cobra command
+// has string flags "dir" (=dirFlag) and "template" (=defaultTemplate) registered,
+// mirroring how +init reads them at runtime via rctx.Str.
+func testRuntimeWithDir(t *testing.T, dirFlag string) *common.RuntimeContext {
+	t.Helper()
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().String("dir", dirFlag, "")
+	cmd.Flags().String("template", defaultTemplate, "")
+	return common.TestNewRuntimeContext(cmd, nil)
+}
+
+func TestResolveTargetPath(t *testing.T) {
+	got, err := resolveTargetPath(testRuntimeWithDir(t, ""), "app_x")
+	if err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	want, _ := filepath.Abs(filepath.Join(".", "app_x"))
+	if got != want {
+		t.Errorf("default dir = %q, want %q", got, want)
+	}
+	abs := t.TempDir() + "/work"
+	if got, err := resolveTargetPath(testRuntimeWithDir(t, abs), "app_x"); err != nil || got != filepath.Clean(abs) {
+		t.Errorf("absolute --dir = %q, err=%v; want %q", got, err, filepath.Clean(abs))
+	}
+	if _, err := resolveTargetPath(testRuntimeWithDir(t, "bad\x01dir"), "app_x"); err == nil {
+		t.Error("control char in --dir should be rejected")
+	}
+}
+
+func TestEnsureEmptyDir_SymlinkRejected(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "real")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	if err := ensureEmptyDir(link); err == nil {
+		t.Error("symlink target must be rejected")
+	}
+}
+
+func TestIsAlreadyInitialized(t *testing.T) {
+	dir := t.TempDir()
+	if isAlreadyInitialized(dir) {
+		t.Error("empty dir must not be already-initialized")
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".spark", "meta.json"), []byte(`{"app_id":"app_y"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !isAlreadyInitialized(dir) {
+		t.Error("dir with .spark/meta.json must be already-initialized (regardless of app_id)")
+	}
+}
 
 func TestAppsInit_Declaration(t *testing.T) {
 	if AppsInit.Command != "+init" {
