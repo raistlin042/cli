@@ -2,7 +2,9 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-初始化妙搭应用的**本地开发仓库**。这是一个编排命令（orchestrator）：先调 `apps +git-credential-init` 签发带凭据的仓库地址，再 `git clone` → 切到 `sprint/default` 分支 →（本版本暂跳过 npx 脚手架步骤）→ 若工作区有改动则 `git add -A` + commit + `git push origin sprint/default`，工作区干净则跳过 commit/push。返回本地克隆路径。
+初始化妙搭应用的**本地开发仓库**。这是一个编排命令（orchestrator）：先解析目标目录 → **若目录已初始化则友好 no-op 直接返回** → 检查 `git` / `npx` 依赖 → 调 `apps +git-credential-init` 签发带凭据的仓库地址 → `git clone` → 切到 `sprint/default` 分支 → **跑 npx 脚手架**（空仓库 `app init`，非空仓库 `app upgrade` + 补 `.spark/meta.json` 的 `app_id` + 按需 `skills sync`）→ 若工作区有改动则 `git add -A` + commit + `git push origin sprint/default`，工作区干净则跳过 commit/push。返回本地克隆路径。
+
+> 💡 **跑 `+init` 前先问用户「clone 到哪」：** `+init` 会把仓库克隆到本地磁盘。Agent **应先询问用户希望克隆的目标目录**，并通过 `--dir` 传入；`--dir` 接受**绝对路径或相对路径**。用户没有偏好时，默认克隆到 `./<app-id>`。
 
 > ⚠️ **依赖未发布：** `+init` 依赖 `apps +git-credential-init` 命令，该命令**当前版本尚未发布**。在它就绪前，`+init` 会以结构化 `credential_init` 错误失败——这是预期行为，不是命令本身坏了。
 
@@ -12,10 +14,14 @@
 # 最小调用（克隆到 ./<app-id>）
 lark-cli apps +init --app-id app_xxx
 
-# 指定克隆目录（必须是 cwd 内的相对路径）
+# 指定克隆目录（绝对或相对路径均可；推荐先问用户克隆到哪）
 lark-cli apps +init --app-id app_xxx --dir ./my-app
+lark-cli apps +init --app-id app_xxx --dir /Users/me/code/my-app
 
-# 预演（打印计划步骤，不执行任何 git 操作）
+# 指定脚手架模板（默认 nestjs-react-fullstack）
+lark-cli apps +init --app-id app_xxx --template nestjs-react-fullstack
+
+# 预演（打印计划步骤，不执行任何 git / npx 操作）
 lark-cli apps +init --app-id app_xxx --dry-run
 ```
 
@@ -24,9 +30,30 @@ lark-cli apps +init --app-id app_xxx --dry-run
 | 参数 | 必填 | 说明 |
 |---|---|---|
 | `--app-id <id>` | ✅ | 妙搭应用 ID；缺失时 Validate 阶段以结构化 `validation` 错误退出（exit code 2），**不是**纯文本错误 |
-| `--dir <path>` | ❌ | 克隆目标目录，默认 `./<app-id>`。**必须是 cwd 内的相对路径**（经 `validate.SafeInputPath` 校验）：绝对路径或越界路径（`../`、`/Users/...`）会被拒绝；目标目录已存在且**非空**也会被拒绝（不存在则由 git clone 创建） |
+| `--dir <path>` | ❌ | 克隆目标目录，默认 `./<app-id>`。**接受绝对路径或相对路径**（不再强制 cwd 内）；只拒绝控制字符。目标目录是**符号链接**、或已存在且**非空**会被拒绝（不存在则由 git clone 创建）。**例外：** 目标目录若已是初始化过的妙搭仓库（含 `.spark/meta.json`），即使非空也不拒绝，而是走「已初始化 no-op」（见下） |
+| `--template <tpl>` | ❌ | 空仓库脚手架（`app init`）使用的模板，默认 `nestjs-react-fullstack`。**未来按 app 技术栈传入，当前固定用默认值**；非空仓库走 `app upgrade`，不使用该模板 |
 | `--format <fmt>` | ❌ | 输出格式，默认 `json` |
 | `--dry-run` | ❌ | 仅打印计划步骤，不执行 |
+
+## 已初始化目录：友好 no-op
+
+如果 `--dir`（或默认目录）已经包含 `.spark/meta.json`，说明该目录已是初始化过的妙搭仓库。此时 `+init` **不会重新初始化**，而是直接以 `scaffold:"already_initialized"`、exit 0 友好返回，不做 clone / 脚手架 / commit。
+
+**注意：** 这条路径**没有 clone 任何东西**，所以输出 `data` 里**没有 `repository_url`、也没有 `branch`**，只含 `app_id` / `clone_path` / `scaffold` / `committed` / `pushed` / `message`：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "app_id": "app_xxx",
+    "clone_path": "/abs/path/to/app_xxx",
+    "scaffold": "already_initialized",
+    "committed": false,
+    "pushed": false,
+    "message": "Repository already initialized. You can start developing."
+  }
+}
+```
 
 ## 返回值
 
@@ -40,9 +67,9 @@ lark-cli apps +init --app-id app_xxx --dry-run
     "repository_url": "https://***@example.com/org/app_xxx.git",
     "branch": "sprint/default",
     "clone_path": "/abs/path/to/app_xxx",
+    "scaffold": "init",
     "committed": false,
     "pushed": false,
-    "npx_skipped": true,
     "message": "Repository initialized. You can start developing."
   }
 }
@@ -63,28 +90,32 @@ lark-cli apps +init --app-id app_xxx --dry-run
 
 ## 字段语义
 
+普通初始化路径的 `data` 含以下全部字段；**已初始化 no-op 路径**只含其中的 `app_id` / `clone_path` / `scaffold` / `committed` / `pushed` / `message`（**无 `repository_url`、无 `branch`**）：
+
 | 字段 | 含义 |
 |---|---|
 | `app_id` | 透传的应用 ID |
-| `repository_url` | 仓库地址，**凭据已脱敏**：URL 里的 userinfo 段被替换为 `***`（如 `https://***@host/...`）。任何回显仓库地址的错误信息也同样脱敏 |
-| `branch` | 切出的分支，固定为 `sprint/default` |
+| `repository_url` | 仓库地址，**凭据已脱敏**：URL 里的 userinfo 段被替换为 `***`（如 `https://***@host/...`）。任何回显仓库地址的错误信息也同样脱敏。**仅普通初始化路径有；已初始化 no-op 路径没有此字段** |
+| `branch` | 切出的分支，固定为 `sprint/default`。**仅普通初始化路径有；已初始化 no-op 路径没有此字段** |
 | `clone_path` | 本地克隆的**绝对路径** |
+| `scaffold` | 走的脚手架路径：空仓库为 `"init"`、非空仓库为 `"upgrade"`、目录已初始化时为 `"already_initialized"` |
 | `committed` | 是否产生了 commit（工作区干净时为 `false`） |
 | `pushed` | 是否 push 成功（工作区干净时为 `false`；commit 成功但 push 失败时为 `committed=true, pushed=false` 并带 `git_push` 错误） |
-| `npx_skipped` | 本版本恒为 `true`（npx 脚手架步骤本版本有意跳过） |
 | `message` | 固定的成功提示文案 |
 
-错误 `type` 取值随失败阶段不同：`validation`（参数 / 路径 / repository_url scheme 非 http(s)）、`dependency`（PATH 上找不到 git）、`credential_init`（凭据签发失败或返回不可解析）、`git_clone` / `git_checkout` / `git_status` / `git_add` / `git_commit` / `git_push`（对应 git 步骤失败）。优先转述 `error.hint`，为空时退回 `error.message`。
+错误 `type` 取值随失败阶段不同：`validation`（参数 / 路径 / repository_url scheme 非 http(s)）、`dependency`（PATH 上找不到 `git` 或 `npx`）、`credential_init`（凭据签发失败或返回不可解析）、`git_clone` / `git_checkout` / `git_status` / `git_add` / `git_commit` / `git_push`（对应 git 步骤失败）、`git_ls_files`（探测空仓库时 `git ls-files` 失败）、`npx_app_init` / `npx_app_upgrade` / `npx_skills_sync`（对应 npx 脚手架步骤失败）、`meta_write`（读写 / 解析 `.spark/meta.json` 失败）。优先转述 `error.hint`，为空时退回 `error.message`。
 
 ## --dry-run 行为
 
-预演只打印计划，不执行任何 git 操作，字段包括：`credential_init`（将要跑的 `+git-credential-init` 命令）、`clone`、`checkout`、`commit_push`（条件说明）、`clone_path`、`npx_skipped`。
+预演只打印计划，不执行任何 git / npx 操作，字段包括：`credential_init`（将要跑的 `+git-credential-init` 命令）、`clone`、`checkout`、`scaffold`（空仓库 / 非空仓库两条脚手架路径的说明）、`commit_push`（条件说明）、`template`、`clone_path`。
 
-若 `--dir` 校验失败（绝对路径 / 越界 / 已存在非空），dry-run **不会**直接报错退出，而是把拒绝原因放进 `dir_error` 字段、`clone_path` 退回默认值，并**仍以 exit 0 返回**。所以 dry-run 通过不代表真跑一定通过——要检查输出里有没有 `dir_error`。
+- 若 `--dir`（或默认目录）已是初始化过的仓库（含 `.spark/meta.json`），dry-run 会额外置 `already_initialized: true`，提示真跑时会走 no-op。
+- 若 `--dir` 校验失败（含控制字符）或目标目录已存在非空 / 是符号链接，dry-run **不会**直接报错退出，而是把拒绝原因放进 `dir_error` 字段（路径无法解析时 `clone_path` 退回默认值），并**仍以 exit 0 返回**。所以 dry-run 通过不代表真跑一定通过——要检查输出里有没有 `dir_error`。
 
 ## 前置条件与注意事项
 
-- **`git` 必须在 PATH 上**：否则以结构化 `dependency` 错误退出，hint 为 `install git and ensure it is on your PATH`。
+- **`git` 和 `npx` 都必须在 PATH 上**：缺任一个都以结构化 `dependency` 错误退出（缺 `git` 时 hint 为 `install git and ensure it is on your PATH`；缺 `npx` 时提示安装 Node.js）。`npx` 用于跑妙搭脚手架（`@lark-apaas/miaoda-cli@alpha`）。
+- **npx 脚手架**：clone + checkout 后，`+init` 在仓库内跑脚手架。**空仓库**（`git ls-files` 为空）跑 `npx @lark-apaas/miaoda-cli@alpha app init --template <tpl> --app-id <id>`（`scaffold:"init"`）；**非空仓库**跑 `npx ... app upgrade`，随后在 `.spark/meta.json` 存在且缺 `app_id` 时补上该字段（已存在则不动），再在缺 `.agent/skills/steering` 目录时跑 `npx ... skills sync`（`scaffold:"upgrade"`）。
 - **依赖 `apps +git-credential-init`**：`+init` 通过 shell out 调用同一个 lark-cli 可执行文件去跑 `apps +git-credential-init --app-id <id> --format json`（设置了 `--as` 时会透传），从其 `data.repository_url` 取仓库地址，再用它 `git clone`。运行时若凭据签发失败或远端不可达，`+init` 在此步返回 `credential_init` 结构化错误。
 - **commit message 固定**：push 时的 commit 主题是固定常量 `chore: scaffold app via lark-cli apps +init`，绝不拼接用户输入。
 - **repository_url 仅接受 http(s)**：从 `+git-credential-init` 拿到的地址若不是 `http://` / `https://`（如 `ssh://`、`ext::`、`file://`）会被直接拒绝（`validation` 错误），以防危险的 git transport 与参数注入。
