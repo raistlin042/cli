@@ -15,6 +15,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/larksuite/cli/internal/cmdutil"
+	"github.com/larksuite/cli/internal/core"
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
@@ -667,5 +669,79 @@ func TestIsEmptyRepo(t *testing.T) {
 				t.Errorf("ls=%q -> empty=%v err=%v, want %v", c.ls, got, err, c.want)
 			}
 		})
+	}
+}
+
+// newAppsExecuteFactoryWithStderr mirrors newAppsExecuteFactory but also returns
+// the stderr buffer, so tests can assert on the +init progress log lines that
+// initLogf writes to IO().ErrOut.
+func newAppsExecuteFactoryWithStderr(t *testing.T) (*cmdutil.Factory, *bytes.Buffer, *bytes.Buffer) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("LARKSUITE_CLI_CONFIG_DIR", t.TempDir())
+	cfg := &core.CliConfig{
+		AppID:      "test-app-" + strings.ToLower(t.Name()),
+		AppSecret:  "test-secret",
+		Brand:      core.BrandFeishu,
+		UserOpenId: "ou_test",
+	}
+	factory, stdout, stderr, _ := cmdutil.TestFactory(t, cfg)
+	return factory, stdout, stderr
+}
+
+func TestAppsInit_Req1_Wording(t *testing.T) {
+	var tmpl *common.Flag
+	for i := range AppsInit.Flags {
+		if AppsInit.Flags[i].Name == "template" {
+			tmpl = &AppsInit.Flags[i]
+		}
+	}
+	if tmpl == nil {
+		t.Fatal("--template flag missing")
+	}
+	if strings.Contains(strings.ToLower(tmpl.Desc), "scaffold") {
+		t.Errorf("--template Desc still mentions scaffold: %q", tmpl.Desc)
+	}
+	if !strings.Contains(strings.ToLower(tmpl.Desc), "code-init") {
+		t.Errorf("--template Desc should use code-init wording: %q", tmpl.Desc)
+	}
+
+	// The --dry-run output is a flat object (DryRunAPI marshals to top-level keys
+	// description/scaffold/api/...), NOT wrapped in {"data":...}, so parse stdout
+	// directly rather than via parseEnvelopeData.
+	factory, stdout, _ := newAppsExecuteFactoryWithStderr(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--as", "user", "--dry-run"}, factory, stdout); err != nil {
+		t.Fatalf("dry-run err=%v", err)
+	}
+	var data map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
+		t.Fatalf("decode dry-run output: %v (raw=%q)", err, stdout.String())
+	}
+	desc, _ := data["description"].(string)
+	if strings.Contains(strings.ToLower(desc), "scaffold") {
+		t.Errorf("dry-run description still mentions scaffold: %q", desc)
+	}
+	if _, ok := data["scaffold"]; !ok {
+		t.Error("dry-run must keep machine-contract key `scaffold`")
+	}
+
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {},
+	}}
+	withFakeRunner(t, f)
+	factory2, stdout2, stderr2 := newAppsExecuteFactoryWithStderr(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory2, stdout2); err != nil {
+		t.Fatalf("run err=%v", err)
+	}
+	if strings.Contains(stderr2.String(), "Scaffolding") {
+		t.Errorf("progress log still says Scaffolding: %q", stderr2.String())
+	}
+	if !strings.Contains(stderr2.String(), "Initializing app code") {
+		t.Errorf("progress log should say 'Initializing app code': %q", stderr2.String())
 	}
 }

@@ -60,7 +60,7 @@ var AppsInit = common.Shortcut{
 		// check lives in Validate (output.ErrValidation -> ExitValidation=2).
 		{Name: "app-id", Desc: "Miaoda app ID"},
 		{Name: "dir", Desc: "clone target directory; absolute or relative path (default ./<app-id>)"},
-		{Name: "template", Desc: "scaffold template for an empty repo; optional — if omitted, derived from the app's tech stack"},
+		{Name: "template", Desc: "code-init template for an empty repo; optional — if omitted, derived from the app's tech stack"},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
@@ -72,7 +72,7 @@ var AppsInit = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		template := resolveTemplate(rctx, appID)
 		dry := common.NewDryRunAPI().
-			Desc("Initialize Miaoda app repository (credential-init, clone, checkout, npx scaffold, optional commit/push)").
+			Desc("Initialize Miaoda app repository (credential-init, clone, checkout, npx code-init, optional commit/push)").
 			Set("credential_init", fmt.Sprintf("apps +git-credential-init --app-id %s --format json", appID)).
 			Set("checkout", "git checkout "+defaultInitBranch).
 			Set("scaffold", fmt.Sprintf("empty repo: npx %s app init --template %s --app-id %s; non-empty: npx %s app upgrade + .spark/meta.json app_id patch + conditional skills sync", miaodaCLIPkg, template, appID, miaodaCLIPkg)).
@@ -366,7 +366,7 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		return output.Errorf(output.ExitAPI, "git_checkout", "git checkout %s failed: %s", defaultInitBranch, gitErr(stderr, err))
 	}
 
-	initLogf(rctx, "Scaffolding (running miaoda-cli)...")
+	initLogf(rctx, "Initializing app code (running miaoda-cli)...")
 	scaffold, err := runScaffold(ctx, dir, appID, resolveTemplate(rctx, appID))
 	if err != nil {
 		return err
