@@ -18,7 +18,7 @@ lark-cli apps +init --app-id app_xxx
 lark-cli apps +init --app-id app_xxx --dir ./my-app
 lark-cli apps +init --app-id app_xxx --dir /Users/me/code/my-app
 
-# 指定脚手架模板（默认 nestjs-react-fullstack）
+# 指定脚手架模板（可选；省略时未来按 app 技术栈派生，当前回退 nestjs-react-fullstack）
 lark-cli apps +init --app-id app_xxx --template nestjs-react-fullstack
 
 # 预演（打印计划步骤，不执行任何 git / npx 操作）
@@ -31,7 +31,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 |---|---|---|
 | `--app-id <id>` | ✅ | 妙搭应用 ID；缺失时 Validate 阶段以结构化 `validation` 错误退出（exit code 2），**不是**纯文本错误 |
 | `--dir <path>` | ❌ | 克隆目标目录，默认 `./<app-id>`。**接受绝对路径或相对路径**（不再强制 cwd 内）；只拒绝控制字符。目标目录是**符号链接**、或已存在且**非空**会被拒绝（不存在则由 git clone 创建）。**例外：** 目标目录若已是初始化过的妙搭仓库（含 `.spark/meta.json`），即使非空也不拒绝，而是走「已初始化 no-op」（见下） |
-| `--template <tpl>` | ❌ | 空仓库脚手架（`app init`）使用的模板，默认 `nestjs-react-fullstack`。**未来按 app 技术栈传入，当前固定用默认值**；非空仓库走 `app upgrade`，不使用该模板 |
+| `--template <tpl>` | ❌ | 空仓库脚手架（`app init`）使用的模板，**可选、无硬编码默认**：显式传入则用传入值；**省略时未来按 app 技术栈派生**（按 app_id 经 apps API 查到应用、再把技术栈经枚举映射到模板，**尚未实现**），**在该能力落地前省略时回退到 `nestjs-react-fullstack`**。非空仓库走 `app upgrade`，不使用该模板 |
 | `--format <fmt>` | ❌ | 输出格式，默认 `json` |
 | `--dry-run` | ❌ | 仅打印计划步骤，不执行 |
 
@@ -88,6 +88,16 @@ lark-cli apps +init --app-id app_xxx --dry-run
 }
 ```
 
+## 进度与输出流（stdout/stderr）
+
+`+init` 是一个多步编排命令，运行时会在每一步往 **stderr** 打一行 `→ ` 前缀的进度提示（如签发凭据、clone、checkout、跑脚手架、commit/push 或工作区干净跳过、已初始化 no-op）。**stdout 始终只承载纯 JSON 结果 envelope**，进度不会污染它。
+
+**stdout / stderr 契约（机器 / AI 消费者务必遵守）：**
+
+- **stdout** = 成功时的 JSON 结果 envelope（即上面「返回值」里的成功结构，未变）。
+- **stderr** = 零行或多行纯文本 `→ ` 前缀进度；**失败时，结构化 JSON 错误 envelope 也写到 stderr**，且位于所有进度行**之后**。
+- 因此消费者应当：成功路径**读 stdout** 取结果 envelope；错误路径**解析 stderr 上最后一个 JSON 文档**（即末尾那个错误 envelope）。**不要直接 `jq` 整个 stderr**——先按 `→ ` 前缀过滤掉进度行，或只取最后一个 JSON 文档。`→ ` 进度行是纯文本、可安全丢弃。
+
 ## 字段语义
 
 普通初始化路径的 `data` 含以下全部字段；**已初始化 no-op 路径**只含其中的 `app_id` / `clone_path` / `scaffold` / `committed` / `pushed` / `message`（**无 `repository_url`、无 `branch`**）：
@@ -111,6 +121,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 
 - 若 `--dir`（或默认目录）已是初始化过的仓库（含 `.spark/meta.json`），dry-run 会额外置 `already_initialized: true`，提示真跑时会走 no-op。
 - 若 `--dir` 校验失败（含控制字符）或目标目录已存在非空 / 是符号链接，dry-run **不会**直接报错退出，而是把拒绝原因放进 `dir_error` 字段（路径无法解析时 `clone_path` 退回默认值），并**仍以 exit 0 返回**。所以 dry-run 通过不代表真跑一定通过——要检查输出里有没有 `dir_error`。
+- dry-run **不会**往 stderr 打 `→ ` 进度行（那些进度仅在真跑各步骤时输出）；它只打印计划本身。
 
 ## 前置条件与注意事项
 
