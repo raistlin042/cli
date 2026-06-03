@@ -7,6 +7,9 @@
 ## 命令
 
 ```bash
+# 按关键词过滤定位存量应用（推荐，Agent 找 app_id 的主路径）
+lark-cli apps +list --filter 客户管理
+
 # 拉第一页（默认 page_size=20）
 lark-cli apps +list
 
