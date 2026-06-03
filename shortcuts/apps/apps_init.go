@@ -153,6 +153,55 @@ func isAlreadyInitialized(dir string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// ensureMetaAppID patches <dir>/.spark/meta.json to include app_id when the file
+// exists but lacks (or has an empty) app_id. Other fields are preserved. When
+// the file does not exist, this is a no-op (we never create it).
+func ensureMetaAppID(dir, appID string) error {
+	path := filepath.Join(dir, metaRelPath)
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return output.Errorf(output.ExitAPI, "meta_write", "read %s failed: %v", metaRelPath, err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(b, &m); err != nil {
+		return output.Errorf(output.ExitAPI, "meta_write", "parse %s failed: %v", metaRelPath, err)
+	}
+	if cur, _ := m["app_id"].(string); strings.TrimSpace(cur) != "" {
+		return nil
+	}
+	if m == nil {
+		m = map[string]interface{}{}
+	}
+	m["app_id"] = appID
+	out, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return output.Errorf(output.ExitAPI, "meta_write", "marshal %s failed: %v", metaRelPath, err)
+	}
+	if err := os.WriteFile(path, append(out, '\n'), 0o644); err != nil {
+		return output.Errorf(output.ExitAPI, "meta_write", "write %s failed: %v", metaRelPath, err)
+	}
+	return nil
+}
+
+// hasSteeringSkills reports whether <dir>/.agent/skills/steering exists as a dir.
+func hasSteeringSkills(dir string) bool {
+	info, err := os.Stat(filepath.Join(dir, steeringRelPath))
+	return err == nil && info.IsDir()
+}
+
+// isEmptyRepo reports whether the checked-out branch has zero tracked files,
+// via `git ls-files`. Empty output = empty repo.
+func isEmptyRepo(ctx context.Context, dir string) (bool, error) {
+	stdout, stderr, err := initRunner.Run(ctx, dir, "git", "ls-files")
+	if err != nil {
+		return false, output.Errorf(output.ExitAPI, "git_ls_files", "git ls-files failed: %s", gitErr(stderr, err))
+	}
+	return strings.TrimSpace(stdout) == "", nil
+}
+
 // parseRepoURLFromEnvelope extracts data.repository_url from a lark-cli JSON
 // envelope ({"ok":true,"data":{"repository_url":"..."}}). The field name
 // matches the contract emitted by `apps +git-credential-init`.

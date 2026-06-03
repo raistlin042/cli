@@ -5,6 +5,7 @@ package apps
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -406,5 +407,68 @@ func TestAppsInit_AsPassthrough(t *testing.T) {
 	}
 	if !hasAs || !hasUser {
 		t.Errorf("credential-init args missing --as user: %v", cred)
+	}
+}
+
+func TestEnsureMetaAppID(t *testing.T) {
+	// no meta.json -> no-op, must not create
+	dir := t.TempDir()
+	if err := ensureMetaAppID(dir, "app_x"); err != nil {
+		t.Fatalf("missing meta should be no-op: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, metaRelPath)); !os.IsNotExist(err) {
+		t.Error("must not create meta.json when absent")
+	}
+	// exists without app_id -> add, preserve other fields
+	dir2 := t.TempDir()
+	os.MkdirAll(filepath.Join(dir2, ".spark"), 0o755)
+	os.WriteFile(filepath.Join(dir2, metaRelPath), []byte(`{"name":"keep"}`), 0o644)
+	if err := ensureMetaAppID(dir2, "app_x"); err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]interface{}
+	b, _ := os.ReadFile(filepath.Join(dir2, metaRelPath))
+	json.Unmarshal(b, &m)
+	if m["app_id"] != "app_x" || m["name"] != "keep" {
+		t.Errorf("merge failed: %v", m)
+	}
+	// exists with app_id -> untouched
+	dir3 := t.TempDir()
+	os.MkdirAll(filepath.Join(dir3, ".spark"), 0o755)
+	os.WriteFile(filepath.Join(dir3, metaRelPath), []byte(`{"app_id":"orig"}`), 0o644)
+	if err := ensureMetaAppID(dir3, "app_x"); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(filepath.Join(dir3, metaRelPath))
+	m = nil
+	json.Unmarshal(b, &m)
+	if m["app_id"] != "orig" {
+		t.Errorf("existing app_id overwritten: %v", m)
+	}
+}
+
+func TestHasSteeringSkills(t *testing.T) {
+	dir := t.TempDir()
+	if hasSteeringSkills(dir) {
+		t.Error("absent steering dir -> false")
+	}
+	os.MkdirAll(filepath.Join(dir, steeringRelPath), 0o755)
+	if !hasSteeringSkills(dir) {
+		t.Error("present steering dir -> true")
+	}
+}
+
+func TestIsEmptyRepo(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: ""}}}
+	withFakeRunner(t, f)
+	empty, err := isEmptyRepo(context.Background(), t.TempDir())
+	if err != nil || !empty {
+		t.Errorf("empty ls-files -> empty=true; got %v err=%v", empty, err)
+	}
+	f2 := &fakeCommandRunner{results: map[string]fakeCallResult{"git ls-files": {stdout: "README.md\n"}}}
+	withFakeRunner(t, f2)
+	empty, err = isEmptyRepo(context.Background(), t.TempDir())
+	if err != nil || empty {
+		t.Errorf("non-empty ls-files -> empty=false; got %v err=%v", empty, err)
 	}
 }
