@@ -21,6 +21,7 @@ import (
 
 type envPullDatabaseInfo struct {
 	Detected      bool
+	ExpiresAtRaw  string
 	ExpiresAtText string
 }
 
@@ -177,7 +178,7 @@ func extractEnvPullVars(data map[string]interface{}) (map[string]string, envPull
 			out[key] = value
 			if key == "SUDA_DATABASE_URL" {
 				info.Detected = true
-				info.ExpiresAtText = formatEnvPullDatabaseExpiry(entry["extras"])
+				info.ExpiresAtRaw, info.ExpiresAtText = extractEnvPullDatabaseExpiry(entry["extras"])
 			}
 		}
 		return out, info, nil
@@ -265,20 +266,26 @@ func parseEnvPullAssignmentLine(line string) (string, bool) {
 	if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 		return "", false
 	}
+	if strings.HasPrefix(trimmed, "export ") || strings.HasPrefix(trimmed, "export\t") {
+		remainder := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "export "), "export\t"))
+		if remainder == "" || strings.HasPrefix(remainder, "=") {
+			return "", false
+		}
+		trimmed = remainder
+	}
 	idx := strings.Index(trimmed, "=")
 	if idx <= 0 {
 		return "", false
 	}
 	key := strings.TrimSpace(trimmed[:idx])
-	value := strings.TrimSpace(trimmed[idx+1:])
-	if key == "" || len(value) < 2 || !strings.HasPrefix(value, `"`) || !strings.HasSuffix(value, `"`) {
+	if key == "" || strings.ContainsAny(key, " \t") {
 		return "", false
 	}
 	return key, true
 }
 
 func formatEnvPullAssignment(key, value string) string {
-	return fmt.Sprintf("%s = %s", key, strconv.Quote(value))
+	return fmt.Sprintf("%s=%s", key, strconv.Quote(value))
 }
 
 func buildEnvPullSuccessData(appID, envFile string, databaseInfo envPullDatabaseInfo) map[string]interface{} {
@@ -286,8 +293,8 @@ func buildEnvPullSuccessData(appID, envFile string, databaseInfo envPullDatabase
 		"app_id":   appID,
 		"env_file": envFile,
 	}
-	if databaseInfo.ExpiresAtText != "" {
-		result["database_url_expires_at"] = databaseInfo.ExpiresAtText
+	if databaseInfo.ExpiresAtRaw != "" {
+		result["database_url_expires_at"] = databaseInfo.ExpiresAtRaw
 	}
 	return result
 }
@@ -297,10 +304,10 @@ func hasEnvPullDatabase(envVars map[string]string) bool {
 	return ok
 }
 
-func formatEnvPullDatabaseExpiry(rawExtras interface{}) string {
+func extractEnvPullDatabaseExpiry(rawExtras interface{}) (string, string) {
 	extras, ok := rawExtras.([]interface{})
 	if !ok {
-		return ""
+		return "", ""
 	}
 	for _, raw := range extras {
 		entry, ok := raw.(map[string]interface{})
@@ -313,16 +320,19 @@ func formatEnvPullDatabaseExpiry(rawExtras interface{}) string {
 		}
 		switch value := entry["value"].(type) {
 		case string:
-			ts, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+			rawValue := strings.TrimSpace(value)
+			ts, err := strconv.ParseInt(rawValue, 10, 64)
 			if err != nil {
-				return ""
+				return "", ""
 			}
-			return time.Unix(ts, 0).Local().Format("2006-01-02 15:04:05 MST")
+			return rawValue, time.Unix(ts, 0).Local().Format("2006-01-02 15:04:05 MST")
 		case float64:
-			return time.Unix(int64(value), 0).Local().Format("2006-01-02 15:04:05 MST")
+			ts := int64(value)
+			rawValue := strconv.FormatInt(ts, 10)
+			return rawValue, time.Unix(ts, 0).Local().Format("2006-01-02 15:04:05 MST")
 		}
 	}
-	return ""
+	return "", ""
 }
 
 func writeEnvPullPretty(w io.Writer, appID, envFile string, databaseInfo envPullDatabaseInfo) {
