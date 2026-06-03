@@ -771,3 +771,108 @@ func TestClassifyPorcelain(t *testing.T) {
 		})
 	}
 }
+
+// commitMessages returns the -m messages of all recorded `git commit` calls.
+func commitMessages(calls [][]string) []string {
+	var msgs []string
+	for _, c := range calls {
+		if len(c) >= 3 && c[1] == "git" && c[2] == "commit" {
+			for i := 3; i+1 < len(c); i++ {
+				if c[i] == "-m" {
+					msgs = append(msgs, c[i+1])
+				}
+			}
+		}
+	}
+	return msgs
+}
+
+func TestAppsInit_EmptyRepo_TwoCommits(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {stdout: " A src/app.ts\n A .spark/meta.json\n A .agent/skills/steering/x.md\n"},
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	msgs := commitMessages(f.calls)
+	want := []string{"chore: initialize app project code", "chore: initialize Miaoda app config"}
+	if len(msgs) != 2 || msgs[0] != want[0] || msgs[1] != want[1] {
+		t.Fatalf("commit messages = %v, want %v", msgs, want)
+	}
+	data := parseEnvelopeData(t, stdout)
+	if data["committed"] != true || data["pushed"] != true {
+		t.Errorf("committed/pushed = %v/%v, want true/true", data["committed"], data["pushed"])
+	}
+}
+
+func TestAppsInit_EmptyRepo_AppCodeOnly_SingleCommit(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {stdout: " A src/app.ts\n"},
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	msgs := commitMessages(f.calls)
+	if len(msgs) != 1 || msgs[0] != "chore: initialize app project code" {
+		t.Fatalf("commit messages = %v, want one app-code commit", msgs)
+	}
+}
+
+func TestAppsInit_EmptyRepo_ConfigOnly_SingleCommit(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {stdout: " A .spark/meta.json\n"},
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	msgs := commitMessages(f.calls)
+	if len(msgs) != 1 || msgs[0] != "chore: initialize Miaoda app config" {
+		t.Fatalf("commit messages = %v, want one config commit", msgs)
+	}
+}
+
+func TestAppsInit_NonEmpty_SingleInitCommit(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: "src/x.ts\n"},
+		"git status":      {stdout: " M file.txt\n M .spark/meta.json\n"},
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected: %v", err)
+	}
+	msgs := commitMessages(f.calls)
+	if len(msgs) != 1 || msgs[0] != "chore: initialize Miaoda app repository" {
+		t.Fatalf("commit messages = %v, want one upgrade commit", msgs)
+	}
+	for _, c := range f.calls {
+		if len(c) >= 3 && c[1] == "git" && c[2] == "commit" && !containsAll(c, "--no-verify") {
+			t.Errorf("commit missing --no-verify: %v", c)
+		}
+	}
+}

@@ -22,9 +22,14 @@ import (
 // defaultInitBranch is the fixed remote branch +init checks out after clone.
 const defaultInitBranch = "sprint/default"
 
-// initCommitMessage is the fixed commit subject used when the post-init working
-// tree has changes to push. Fixed constant — never interpolates user input.
-const initCommitMessage = "chore: scaffold app via lark-cli apps +init"
+// Fixed init commit subjects. Constants — never interpolate user input. The
+// empty-repo (`app init`) path splits the scaffolded tree into two commits;
+// the non-empty (`app upgrade`) path stays a single commit.
+const (
+	commitMsgAppCode   = "chore: initialize app project code"
+	commitMsgAppConfig = "chore: initialize Miaoda app config"
+	commitMsgUpgrade   = "chore: initialize Miaoda app repository"
+)
 
 const (
 	miaodaCLIPkg    = "@lark-apaas/miaoda-cli@alpha"
@@ -372,7 +377,7 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		return err
 	}
 
-	committed, pushed, err := commitAndPushIfDirty(ctx, dir)
+	committed, pushed, err := commitAndPushIfDirty(ctx, dir, scaffold)
 	if err != nil {
 		return err
 	}
@@ -421,8 +426,12 @@ func issueCredentials(ctx context.Context, rctx *common.RuntimeContext, appID st
 }
 
 // commitAndPushIfDirty commits and pushes only when the working tree has
-// changes; a clean tree is a no-op (returns false,false).
-func commitAndPushIfDirty(ctx context.Context, dir string) (committed, pushed bool, err error) {
+// changes; a clean tree is a no-op (returns false,false). For the empty-repo
+// init path (scaffoldKind == "init") it splits the scaffolded tree into two
+// commits — app project code, then Miaoda config (.spark/.agent) — skipping
+// either commit when that group has no changes (no empty commits). Other paths
+// commit once. Push is a single `git push origin <branch>` for all commits.
+func commitAndPushIfDirty(ctx context.Context, dir, scaffoldKind string) (committed, pushed bool, err error) {
 	status, stderr, runErr := initRunner.Run(ctx, dir, "git", "status", "--porcelain")
 	if runErr != nil {
 		return false, false, output.Errorf(output.ExitAPI, "git_status", "git status failed: %s", gitErr(stderr, runErr))
@@ -430,20 +439,52 @@ func commitAndPushIfDirty(ctx context.Context, dir string) (committed, pushed bo
 	if strings.TrimSpace(status) == "" {
 		return false, false, nil
 	}
-	if _, se, e := initRunner.Run(ctx, dir, "git", "add", "-A"); e != nil {
-		return false, false, output.Errorf(output.ExitAPI, "git_add", "git add failed: %s", gitErr(se, e))
+
+	if scaffoldKind == "init" {
+		hasAppCode, hasConfig := classifyPorcelain(status)
+		if hasAppCode {
+			if e := stageAndCommit(ctx, dir, commitMsgAppCode, ".", ":(exclude).spark", ":(exclude).agent"); e != nil {
+				return committed, false, e
+			}
+			committed = true
+		}
+		if hasConfig {
+			if e := stageAndCommit(ctx, dir, commitMsgAppConfig, ".spark", ".agent"); e != nil {
+				return committed, false, e
+			}
+			committed = true
+		}
+	} else {
+		if e := stageAndCommit(ctx, dir, commitMsgUpgrade, "."); e != nil {
+			return false, false, e
+		}
+		committed = true
 	}
-	// --no-verify skips the scaffold repo's pre-commit / commit-msg hooks, which
-	// the miaoda template may carry and which would otherwise block or prompt on
-	// this automated init commit. Local hooks only — signing/remote checks are
-	// unaffected.
-	if _, se, e := initRunner.Run(ctx, dir, "git", "commit", "--no-verify", "-m", initCommitMessage); e != nil {
-		return false, false, output.Errorf(output.ExitAPI, "git_commit", "git commit failed: %s", gitErr(se, e))
+
+	if !committed {
+		return false, false, nil
 	}
+
 	if _, se, e := initRunner.Run(ctx, dir, "git", "push", "origin", defaultInitBranch); e != nil {
 		return true, false, output.Errorf(output.ExitAPI, "git_push", "git push failed: %s", gitErr(se, e))
 	}
 	return true, true, nil
+}
+
+// stageAndCommit stages the given pathspecs (`git add -A -- <pathspecs>`) and
+// makes one `git commit --no-verify -m message`. --no-verify skips the scaffold
+// repo's local pre-commit / commit-msg hooks (local only; the later push is not
+// --no-verify). Callers gate this on classifyPorcelain so the group is non-empty
+// and the commit never hits "nothing to commit".
+func stageAndCommit(ctx context.Context, dir, message string, pathspecs ...string) error {
+	addArgs := append([]string{"add", "-A", "--"}, pathspecs...)
+	if _, se, e := initRunner.Run(ctx, dir, "git", addArgs...); e != nil {
+		return output.Errorf(output.ExitAPI, "git_add", "git add failed: %s", gitErr(se, e))
+	}
+	if _, se, e := initRunner.Run(ctx, dir, "git", "commit", "--no-verify", "-m", message); e != nil {
+		return output.Errorf(output.ExitAPI, "git_commit", "git commit failed: %s", gitErr(se, e))
+	}
+	return nil
 }
 
 // classifyPorcelain parses `git status --porcelain` output and reports whether
