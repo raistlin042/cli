@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/larksuite/cli/internal/charcheck"
 	"github.com/larksuite/cli/internal/output"
@@ -106,6 +107,12 @@ func resolveTargetPath(rctx *common.RuntimeContext, appID string) (string, error
 	raw := strings.TrimSpace(rctx.Str("dir"))
 	if raw == "" {
 		raw = defaultCloneDir(appID)
+	}
+	// Reject ALL control characters (incl. tab/newline — a newline in an echoed
+	// path is a log-injection vector); charcheck additionally rejects dangerous
+	// Unicode (bidi overrides, zero-width) that IsControl does not.
+	if strings.IndexFunc(raw, unicode.IsControl) >= 0 {
+		return "", output.ErrValidation("--dir must not contain control characters")
 	}
 	if err := charcheck.RejectControlChars(raw, "--dir"); err != nil {
 		return "", output.ErrValidation("%v", err)

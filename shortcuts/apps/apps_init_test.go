@@ -42,8 +42,10 @@ func TestResolveTargetPath(t *testing.T) {
 	if got, err := resolveTargetPath(testRuntimeWithDir(t, abs), "app_x"); err != nil || got != filepath.Clean(abs) {
 		t.Errorf("absolute --dir = %q, err=%v; want %q", got, err, filepath.Clean(abs))
 	}
-	if _, err := resolveTargetPath(testRuntimeWithDir(t, "bad\x01dir"), "app_x"); err == nil {
-		t.Error("control char in --dir should be rejected")
+	for _, bad := range []string{"bad\tdir", "bad\ndir", "bad\x01dir", "a\rb"} {
+		if _, err := resolveTargetPath(testRuntimeWithDir(t, bad), "app_x"); err == nil {
+			t.Errorf("control char %q in --dir should be rejected", bad)
+		}
 	}
 }
 
