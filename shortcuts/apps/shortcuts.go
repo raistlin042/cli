@@ -18,5 +18,13 @@ func Shortcuts() []common.Shortcut {
 		AppsPublishHistory,
 		AppsPublishStatus,
 		AppsPublishErrorLog,
+		AppsEnvPull,
+		AppsDBTableList,
+		AppsDBTableSchema,
+		AppsDBSQL,
+		AppsDBDevInit,
+		AppsGitCredentialInit,
+		AppsGitCredentialList,
+		AppsGitCredentialRemove,
 	}
 }

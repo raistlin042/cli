@@ -97,6 +97,30 @@ func TestRegisterShortcutsMountsBaseCommands(t *testing.T) {
 	if workspaceCmd == nil || workspaceCmd.Name() != "+base-get" {
 		t.Fatalf("base workspace shortcut not mounted: %#v", workspaceCmd)
 	}
+
+	blockDataCmd, _, err := program.Find([]string{"base", "+dashboard-block-get-data"})
+	if err != nil {
+		t.Fatalf("find dashboard block get-data shortcut: %v", err)
+	}
+	if blockDataCmd == nil || blockDataCmd.Name() != "+dashboard-block-get-data" {
+		t.Fatalf("base dashboard block get-data shortcut not mounted: %#v", blockDataCmd)
+	}
+}
+
+func TestRegisterShortcutsMountsHiddenAppsGitCredentialHelper(t *testing.T) {
+	program := &cobra.Command{Use: "root"}
+	RegisterShortcuts(program, newRegisterTestFactory(t))
+
+	helperCmd, _, err := program.Find([]string{"apps", "git-credential-helper"})
+	if err != nil {
+		t.Fatalf("find apps git credential helper: %v", err)
+	}
+	if helperCmd == nil || helperCmd.Name() != "git-credential-helper" {
+		t.Fatalf("apps git credential helper not mounted: %#v", helperCmd)
+	}
+	if !helperCmd.Hidden {
+		t.Fatalf("apps git credential helper must be hidden")
+	}
 }
 
 // Service-level cobra commands created by RegisterShortcuts must carry
