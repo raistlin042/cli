@@ -2,7 +2,7 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-初始化妙搭应用的**本地开发仓库**。这是一个编排命令（orchestrator）：先解析目标目录 → **若目录已初始化则友好 no-op 直接返回** → 检查 `git` / `npx` 依赖 → 调 `apps +git-credential-init` 签发带凭据的仓库地址 → `git clone` → 切到 `sprint/default` 分支 → **跑 npx 脚手架**（空仓库 `app init`，非空仓库 `app upgrade` + 补 `.spark/meta.json` 的 `app_id` + 按需 `skills sync`）→ 若工作区有改动则 `git add -A` + commit + `git push origin sprint/default`，工作区干净则跳过 commit/push。返回本地克隆路径。
+初始化妙搭应用的**本地开发仓库**。这是一个编排命令（orchestrator）：先解析目标目录 → **若目录已初始化则友好 no-op 直接返回** → 检查 `git` / `npx` 依赖 → 调 `apps +git-credential-init` 签发带凭据的仓库地址 → `git clone` → 切到 `sprint/default` 分支 → 跑 npx 代码初始化（空仓库 `app init`，非空仓库 `app upgrade` + 补 `.spark/meta.json` 的 `app_id` + 按需 `skills sync`）→ 若工作区有改动则提交并 `git push origin sprint/default`（**空仓库初始化拆成两次提交：先应用项目代码、再妙搭配置**；非空仓库单次提交），工作区干净则跳过 commit/push。返回本地克隆路径。
 
 > 💡 **跑 `+init` 前先问用户「clone 到哪」：** `+init` 会把仓库克隆到本地磁盘。Agent **应先询问用户希望克隆的目标目录**，并通过 `--dir` 传入；`--dir` 接受**绝对路径或相对路径**。用户没有偏好时，默认克隆到 `./<app-id>`。
 
@@ -90,7 +90,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 
 ## 进度与输出流（stdout/stderr）
 
-`+init` 是一个多步编排命令，运行时会在每一步往 **stderr** 打一行 `→ ` 前缀的进度提示（如签发凭据、clone、checkout、跑脚手架、commit/push 或工作区干净跳过、已初始化 no-op）。**stdout 始终只承载纯 JSON 结果 envelope**，进度不会污染它。
+`+init` 是一个多步编排命令，运行时会在每一步往 **stderr** 打一行 `→ ` 前缀的进度提示（如签发凭据、clone、checkout、初始化应用代码、commit/push 或工作区干净跳过、已初始化 no-op）。**stdout 始终只承载纯 JSON 结果 envelope**，进度不会污染它。
 
 **stdout / stderr 契约（机器 / AI 消费者务必遵守）：**
 
@@ -128,7 +128,7 @@ lark-cli apps +init --app-id app_xxx --dry-run
 - **`git` 和 `npx` 都必须在 PATH 上**：缺任一个都以结构化 `dependency` 错误退出（缺 `git` 时 hint 为 `install git and ensure it is on your PATH`；缺 `npx` 时提示安装 Node.js）。`npx` 用于跑妙搭脚手架（`@lark-apaas/miaoda-cli@alpha`）。
 - **npx 脚手架**：clone + checkout 后，`+init` 在仓库内跑脚手架。**空仓库**跑 `npx @lark-apaas/miaoda-cli@alpha app init --template <tpl> --app-id <id>`（`scaffold:"init"`）；这里的「空」是 README 感知的：后端给新建应用仓库种了一个默认空 `README.md`，所以判定规则为——`git ls-files` **列不出任何文件**，**或仅列出根目录的 `README.md`**（精确匹配根目录 `README.md`，`docs/README.md`、`readme.md` 不算），即视为空仓库；除此之外任何被跟踪的文件都算**非空**。**非空仓库**跑 `npx ... app upgrade`，随后在 `.spark/meta.json` 存在且缺 `app_id` 时补上该字段（已存在则不动），再在缺 `.agent/skills/steering` 目录时跑 `npx ... skills sync`（`scaffold:"upgrade"`）。
 - **依赖 `apps +git-credential-init`**：`+init` 通过 shell out 调用同一个 lark-cli 可执行文件去跑 `apps +git-credential-init --app-id <id> --format json`（设置了 `--as` 时会透传），从其 `data.repository_url` 取仓库地址，再用它 `git clone`。运行时若凭据签发失败或远端不可达，`+init` 在此步返回 `credential_init` 结构化错误。
-- **commit message 固定**：push 时的 commit 主题是固定常量 `chore: scaffold app via lark-cli apps +init`，绝不拼接用户输入。脚手架后的自动 commit 跑 `git commit --no-verify`，以跳过脚手架模板可能携带的 pre-commit / commit-msg 钩子（仅跳过本地钩子；随后的 `git push` **不带** `--no-verify`）。
+- **commit message 固定且按场景拆分**：commit 主题是固定常量、绝不拼接用户输入。**空仓库初始化**（`app init`）把脚手架产物拆成两次提交——`chore: initialize app project code`（`.spark/`、`.agent/` 之外的应用代码）+ `chore: initialize Miaoda app config`（`.spark/`、`.agent/`）；某一组无改动则跳过那一条，不产生空提交。**非空仓库**（`app upgrade`）单次提交 `chore: initialize Miaoda app repository`。每次 commit 都跑 `git commit --no-verify`，以跳过脚手架模板可能携带的 pre-commit / commit-msg 钩子（仅跳过本地钩子；随后的 `git push` **不带** `--no-verify`）。
 - **repository_url 仅接受 http(s)**：从 `+git-credential-init` 拿到的地址若不是 `http://` / `https://`（如 `ssh://`、`ext::`、`file://`）会被直接拒绝（`validation` 错误），以防危险的 git transport 与参数注入。
 - **不要**原样把 envelope JSON 复述给用户。
 
