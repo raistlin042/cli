@@ -18,11 +18,11 @@ metadata:
 | **C. 云端会话开发** | 给云端妙搭 Agent 发消息 → 它在云端生成 / 迭代应用 | 任意 |
 
 ```bash
-# A. 本地全栈：建应用 → 拿凭证 → 原生 git clone → 起本地开发 → 编码 → 部署
+# A. 本地全栈：建应用 → 一键初始化本地仓库(+init) → 起本地开发 → 编码 → 部署
 lark-cli apps +create --app-type full_stack --name "审批系统" --message "部门审批系统，支持登录、提交申请、多级审批"
-lark-cli apps +git-credential-init --app-id app_xxx       # 配 git 凭证（一次性，后续自动用）
-git clone <repo>; cd <repo>; npm install && npm dev run   # 起本地开发，自动拉 env（非阻塞）
-git push miaoda develop; lark-cli apps +publish --app-id app_xxx
+lark-cli apps +init --app-id app_xxx --dir ./my-app       # 一步：配凭证+clone+脚手架+推初始代码（先问用户 clone 到哪）
+cd ./my-app && npm install && npm dev run                 # 初始化完成后才起本地开发，自动拉 env（非阻塞）
+git push origin sprint/default; lark-cli apps +publish --app-id app_xxx
 
 # B. HTML 托管
 lark-cli apps +create --app-type HTML --name "客户调研问卷"
@@ -65,7 +65,7 @@ lark-cli apps +session-read --app-id app_xxx --session-id sess_xxx              
 新接入者几乎都会在这几点踩坑，**先读完再操作**：
 
 1. **代码读写走原生 `git`，不走 CLI。** CLI 在本地开发里只做两件事：`+git-credential-init`（配推送凭证）和 `+publish`（部署）。`clone` / `pull` / `push` / `diff` / `log` / `blame` / 解冲突**全部用原生 `git`**。不存在 `apps +pull` / `apps +push` / `apps code +read` 这类命令，别去找、别去拼。
-2. **`develop` / `main` 双分支模型。** `develop` 是唯一工作分支（本地 push、云端 chat 提交都进它）；`main` 是「当前部署态」只读快照，**只能由 `+publish` 推进**（发布成功后服务端自动 fast-forward `main ← develop`）。客户端不要 push main、不要 force-push，服务端 pre-receive hook 会硬拒。
+2. **`sprint/default` / `main` 双分支模型。** `sprint/default` 是唯一工作分支（本地 push、云端 chat 提交都进它）；`main` 是「当前部署态」只读快照，**只能由 `+publish` 推进**（发布成功后服务端自动 fast-forward `main ← sprint/default`）。客户端不要 push main、不要 force-push，服务端 pre-receive hook 会硬拒。
 3. **DB 调试走 `+db-*` 命令（经妙搭封装），不是裸连数据库。** 用 `+db-table-list` / `+db-table-schema` / `+db-sql` 经妙搭服务端鉴权访问应用的多环境数据库，做查表 / 看 schema / 跑 SQL 调试，不用自己拼连接串。（应用运行时自己连库用的是 env 里的凭证，那是另一回事。）
 4. **凭证自动管理，不用手动刷新。** `+git-credential-init` 配好后，后续 git 操作的鉴权由 git credential helper **自动触发**；DB 凭证在环境变量里、`npm dev run` 时**自动更新**——不存在"PAT 过期要手动刷新"这回事，别去找刷新 / 续期命令。
 
@@ -131,7 +131,7 @@ lark-cli auth login --domain apps
 ### 部署
 | 命令 | 用途 | 状态 |
 |------|------|------|
-| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布（release），返回 `{ release_id, status }`（成功后服务端发布 `develop`；dev 库结构变更一并发布到 online） | 已上线 |
+| [`+publish`](references/lark-apps-publish.md) | 为应用创建发布（release），返回 `{ release_id, status }`（成功后服务端发布 `sprint/default`；dev 库结构变更一并发布到 online） | 已上线 |
 | [`+publish-status`](references/lark-apps-publish-status.md) | 按 `--release-id` 查单个发布的状态 / 详情 | 已上线 |
 | [`+publish-history`](references/lark-apps-publish-history.md) | 分页查发布历史（`--status publishing\|finished\|failed` / `--limit 1-500` / `--page-token`） | 已上线 |
 | [`+publish-error-log`](references/lark-apps-publish-error-log.md) | 按 `--release-id` 查失败发布的错误日志（失败步骤 + `error_log`） | 已上线 |
