@@ -99,12 +99,23 @@ func TestCheckEnvPullTargetRejectsDirectory(t *testing.T) {
 }
 
 func TestParseEnvPullAssignmentLine(t *testing.T) {
-	key, ok := parseEnvPullAssignmentLine("FOO = \"bar\"")
-	if !ok {
-		t.Fatalf("expected line to parse")
+	tests := map[string]string{
+		`FOO = "bar"`:    "FOO",
+		`FOO=bar`:        "FOO",
+		`FOO = bar`:      "FOO",
+		`FOO='bar'`:      "FOO",
+		`export FOO=bar`: "FOO",
+		`FOO=`:           "FOO",
+		`FOO=a=b=c`:      "FOO",
 	}
-	if key != "FOO" {
-		t.Fatalf("key = %q, want FOO", key)
+	for line, want := range tests {
+		key, ok := parseEnvPullAssignmentLine(line)
+		if !ok {
+			t.Fatalf("expected line to parse: %q", line)
+		}
+		if key != want {
+			t.Fatalf("key for %q = %q, want %q", line, key, want)
+		}
 	}
 }
 
@@ -114,9 +125,25 @@ func TestParseEnvPullAssignmentLineRejectsComment(t *testing.T) {
 	}
 }
 
+func TestParseEnvPullAssignmentLineRejectsInvalidExport(t *testing.T) {
+	if _, ok := parseEnvPullAssignmentLine("export =bar"); ok {
+		t.Fatalf("invalid export line should not be treated as active assignment")
+	}
+}
+
+func TestParseEnvPullAssignmentLineTreatsExportPrefixWithoutDelimiterAsKey(t *testing.T) {
+	key, ok := parseEnvPullAssignmentLine("exportFOO=bar")
+	if !ok {
+		t.Fatalf("expected export-prefixed key to parse")
+	}
+	if key != "exportFOO" {
+		t.Fatalf("key = %q, want exportFOO", key)
+	}
+}
+
 func TestFormatEnvPullAssignmentEscapesQuotesAndBackslashes(t *testing.T) {
 	got := formatEnvPullAssignment("TOKEN", `a"b\c`)
-	want := `TOKEN = "a\"b\\c"`
+	want := `TOKEN="a\"b\\c"`
 	if got != want {
 		t.Fatalf("formatEnvPullAssignment() = %q, want %q", got, want)
 	}
@@ -125,7 +152,7 @@ func TestFormatEnvPullAssignmentEscapesQuotesAndBackslashes(t *testing.T) {
 func TestMergeEnvPullFileContentPreservesCommentsAndMalformedLines(t *testing.T) {
 	original := strings.Join([]string{
 		"# FOO = \"old\"",
-		"FOO = \"old\"",
+		"FOO=old",
 		"BROKEN LINE",
 		"KEEP = \"stay\"",
 		"",
@@ -139,7 +166,7 @@ func TestMergeEnvPullFileContentPreservesCommentsAndMalformedLines(t *testing.T)
 	if !strings.Contains(merged, "# FOO = \"old\"") {
 		t.Fatalf("comment line must be preserved: %q", merged)
 	}
-	if !strings.Contains(merged, "FOO = \"new\"") {
+	if !strings.Contains(merged, `FOO="new"`) {
 		t.Fatalf("active key must be updated: %q", merged)
 	}
 	if !strings.Contains(merged, "BROKEN LINE") {
@@ -148,7 +175,7 @@ func TestMergeEnvPullFileContentPreservesCommentsAndMalformedLines(t *testing.T)
 	if !strings.Contains(merged, "KEEP = \"stay\"") {
 		t.Fatalf("unrelated key must be preserved: %q", merged)
 	}
-	if !strings.Contains(merged, "BAR = \"added\"") {
+	if !strings.Contains(merged, `BAR="added"`) {
 		t.Fatalf("missing key must be appended: %q", merged)
 	}
 	if len(updated) != 1 || updated[0] != "FOO" {
@@ -159,8 +186,47 @@ func TestMergeEnvPullFileContentPreservesCommentsAndMalformedLines(t *testing.T)
 	}
 }
 
+func TestMergeEnvPullFileContentUpdatesCommonAssignmentStylesWithoutDuplicateKeys(t *testing.T) {
+	original := strings.Join([]string{
+		`FOO=old`,
+		`BAR = old`,
+		`export BAZ=old`,
+		`QUX='old'`,
+		"",
+	}, "\n")
+
+	merged, updated, created := mergeEnvPullFileContent(original, map[string]string{
+		"FOO": "new-foo",
+		"BAR": "new-bar",
+		"BAZ": "new-baz",
+		"QUX": "new-qux",
+	})
+
+	for _, want := range []string{
+		`FOO="new-foo"`,
+		`BAR="new-bar"`,
+		`BAZ="new-baz"`,
+		`QUX="new-qux"`,
+	} {
+		if strings.Count(merged, want) != 1 {
+			t.Fatalf("expected exactly one canonical assignment %q in %q", want, merged)
+		}
+	}
+	for _, legacy := range []string{`FOO=old`, `BAR = old`, `export BAZ=old`, `QUX='old'`} {
+		if strings.Contains(merged, legacy) {
+			t.Fatalf("legacy assignment should be replaced, still found %q in %q", legacy, merged)
+		}
+	}
+	if len(updated) != 4 {
+		t.Fatalf("updated = %v, want 4 items", updated)
+	}
+	if len(created) != 0 {
+		t.Fatalf("created = %v, want empty", created)
+	}
+}
+
 func TestBuildEnvPullSuccessDataSuppressesEnvKeysAndValues(t *testing.T) {
-	data := buildEnvPullSuccessData("app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtText: "2026-06-02 16:30:06 CST"})
+	data := buildEnvPullSuccessData("app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtRaw: "1780389006", ExpiresAtText: "2026-06-02 16:30:06 CST"})
 
 	if _, ok := data["updated"]; ok {
 		t.Fatalf("success data must not expose updated key names: %v", data)
@@ -183,8 +249,8 @@ func TestBuildEnvPullSuccessDataSuppressesEnvKeysAndValues(t *testing.T) {
 	if got := data["env_file"]; got != "/repo/.env.local" {
 		t.Fatalf("env_file = %v, want /repo/.env.local", got)
 	}
-	if got := data["database_url_expires_at"]; got != "2026-06-02 16:30:06 CST" {
-		t.Fatalf("database_url_expires_at = %v, want 2026-06-02 16:30:06 CST", got)
+	if got := data["database_url_expires_at"]; got != "1780389006" {
+		t.Fatalf("database_url_expires_at = %v, want 1780389006", got)
 	}
 }
 
@@ -284,8 +350,8 @@ func TestAppsEnvPull_JSONOutput_UsesSummaryFieldsOnly(t *testing.T) {
 	if !strings.Contains(got, `"env_file": "`+filepath.Join(projectDir, ".env.local")+`"`) {
 		t.Fatalf("json output must expose env_file: %s", got)
 	}
-	if !strings.Contains(got, `"database_url_expires_at": "2026-06-02 16:30:06 CST"`) {
-		t.Fatalf("json output must expose database_url_expires_at: %s", got)
+	if !strings.Contains(got, `"database_url_expires_at": "1780389006"`) {
+		t.Fatalf("json output must expose raw database_url_expires_at: %s", got)
 	}
 	if strings.Contains(got, `"project_path"`) {
 		t.Fatalf("json output must not expose project_path: %s", got)
@@ -363,7 +429,7 @@ func TestAppsEnvPull_WritesCanonicalEnvFile(t *testing.T) {
 	})
 	if err := os.WriteFile(filepath.Join(projectDir, ".env.local"), []byte(strings.Join([]string{
 		"# AAA = \"commented\"",
-		"AAA = \"old\"",
+		"AAA=old",
 		"KEEP = \"stay\"",
 		"BROKEN LINE",
 		"",
@@ -385,10 +451,10 @@ func TestAppsEnvPull_WritesCanonicalEnvFile(t *testing.T) {
 	if !strings.Contains(got, "# AAA = \"commented\"") {
 		t.Fatalf("comment must be preserved: %q", got)
 	}
-	if !strings.Contains(got, "AAA = \"new\"") {
+	if !strings.Contains(got, `AAA="new"`) {
 		t.Fatalf("active value must be updated: %q", got)
 	}
-	if !strings.Contains(got, `BBB = "quote\"and\\\\slash"`) {
+	if !strings.Contains(got, `BBB="quote\"and\\\\slash"`) {
 		t.Fatalf("new key must be appended canonically: %q", got)
 	}
 	if !strings.Contains(got, "KEEP = \"stay\"") {
@@ -475,7 +541,7 @@ func TestAppsEnvPull_ExecuteUsesNestedDataEnvVars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile() err=%v", err)
 	}
-	if !strings.Contains(string(data), `AAA = "value-a"`) {
+	if !strings.Contains(string(data), `AAA="value-a"`) {
 		t.Fatalf("expected nested data env vars to be written, got %q", string(data))
 	}
 }
@@ -507,10 +573,10 @@ func TestAppsEnvPull_ExecuteUsesArrayEnvVars(t *testing.T) {
 		t.Fatalf("ReadFile() err=%v", err)
 	}
 	gotFile := string(data)
-	if !strings.Contains(gotFile, `AAA = "value-a"`) {
+	if !strings.Contains(gotFile, `AAA="value-a"`) {
 		t.Fatalf("expected array env_vars entry to be written, got %q", gotFile)
 	}
-	if !strings.Contains(gotFile, `SUDA_DATABASE_URL = "postgres://db"`) {
+	if !strings.Contains(gotFile, `SUDA_DATABASE_URL="postgres://db"`) {
 		t.Fatalf("expected SUDA_DATABASE_URL array entry to be written, got %q", gotFile)
 	}
 	gotOut := stdout.String()
@@ -609,9 +675,9 @@ func TestMergeEnvPullFileContentEmptyEnvVarsPreservesOriginalNewline(t *testing.
 	}
 }
 
-func TestParseEnvPullAssignmentLineRejectsUnquotedValue(t *testing.T) {
-	if _, ok := parseEnvPullAssignmentLine("FOO = bar"); ok {
-		t.Fatalf("unquoted value should not be treated as active assignment")
+func TestParseEnvPullAssignmentLineRejectsInvalidKey(t *testing.T) {
+	if _, ok := parseEnvPullAssignmentLine("FOO BAR=baz"); ok {
+		t.Fatalf("assignment with whitespace in key should not be treated as active assignment")
 	}
 }
 
