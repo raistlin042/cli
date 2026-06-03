@@ -160,7 +160,7 @@ func TestMergeEnvPullFileContentPreservesCommentsAndMalformedLines(t *testing.T)
 }
 
 func TestBuildEnvPullSuccessDataSuppressesEnvKeysAndValues(t *testing.T) {
-	data := buildEnvPullSuccessData("app_x", "/repo", "/repo/.env.local", true, 1, 2)
+	data := buildEnvPullSuccessData("app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtText: "2026-06-02 16:30:06 CST"})
 
 	if _, ok := data["updated"]; ok {
 		t.Fatalf("success data must not expose updated key names: %v", data)
@@ -168,11 +168,23 @@ func TestBuildEnvPullSuccessDataSuppressesEnvKeysAndValues(t *testing.T) {
 	if _, ok := data["created"]; ok {
 		t.Fatalf("success data must not expose created key names: %v", data)
 	}
-	if data["updated_count"] != 1 {
-		t.Fatalf("updated_count = %v, want 1", data["updated_count"])
+	if _, ok := data["project_path"]; ok {
+		t.Fatalf("success data must not expose project_path: %v", data)
 	}
-	if data["created_count"] != 2 {
-		t.Fatalf("created_count = %v, want 2", data["created_count"])
+	if _, ok := data["updated_count"]; ok {
+		t.Fatalf("success data must not expose updated_count: %v", data)
+	}
+	if _, ok := data["created_count"]; ok {
+		t.Fatalf("success data must not expose created_count: %v", data)
+	}
+	if got := data["app_id"]; got != "app_x" {
+		t.Fatalf("app_id = %v, want app_x", got)
+	}
+	if got := data["env_file"]; got != "/repo/.env.local" {
+		t.Fatalf("env_file = %v, want /repo/.env.local", got)
+	}
+	if got := data["database_url_expires_at"]; got != "2026-06-02 16:30:06 CST" {
+		t.Fatalf("database_url_expires_at = %v, want 2026-06-02 16:30:06 CST", got)
 	}
 }
 
@@ -207,9 +219,9 @@ func TestAppsEnvPull_PrettyOutput_WithDatabaseLine(t *testing.T) {
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{
-				"env_vars": map[string]interface{}{
-					"SUDA_DATABASE_URL": "short-lived-db-token",
-					"APP_ID":            "app_x",
+				"env_vars": []interface{}{
+					map[string]interface{}{"key": "SUDA_DATABASE_URL", "value": "postgres://db", "extras": []interface{}{map[string]interface{}{"key": "expiresAt", "value": "1780389006"}}},
+					map[string]interface{}{"key": "APP_ID", "value": "app_x"},
 				},
 			},
 		},
@@ -228,15 +240,21 @@ func TestAppsEnvPull_PrettyOutput_WithDatabaseLine(t *testing.T) {
 	if !strings.Contains(got, "Development database detected") {
 		t.Fatalf("missing database line: %q", got)
 	}
-	if !strings.Contains(got, filepath.Join(projectDir, ".env.local")) {
-		t.Fatalf("missing env file path in pretty output: %q", got)
+	if !strings.Contains(got, "✓ Local environment written to "+filepath.Join(projectDir, ".env.local")) {
+		t.Fatalf("missing env file write line in pretty output: %q", got)
 	}
-	if strings.Contains(got, "short-lived-db-token") {
+	if !strings.Contains(got, "\n\nDATABASE_URL is valid until 2026-06-02 16:30:06 CST.\n") {
+		t.Fatalf("missing blank-line separated expiry block: %q", got)
+	}
+	if !strings.Contains(got, "Run `lark-cli apps +env-pull --app-id <app_id>` again to refresh it.") {
+		t.Fatalf("missing refresh hint line: %q", got)
+	}
+	if strings.Contains(got, "postgres://db") {
 		t.Fatalf("pretty output must not print env values: %q", got)
 	}
 }
 
-func TestAppsEnvPull_JSONOutput_UsesCountsOnly(t *testing.T) {
+func TestAppsEnvPull_JSONOutput_UsesSummaryFieldsOnly(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
 	projectDir := t.TempDir()
 	reg.Register(&httpmock.Stub{
@@ -245,9 +263,9 @@ func TestAppsEnvPull_JSONOutput_UsesCountsOnly(t *testing.T) {
 		Body: map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{
-				"env_vars": map[string]interface{}{
-					"AAA": "value-a",
-					"BBB": "value-b",
+				"env_vars": []interface{}{
+					map[string]interface{}{"key": "AAA", "value": "value-a"},
+					map[string]interface{}{"key": "SUDA_DATABASE_URL", "value": "postgres://db", "extras": []interface{}{map[string]interface{}{"key": "expiresAt", "value": "1780389006"}}},
 				},
 			},
 		},
@@ -260,17 +278,23 @@ func TestAppsEnvPull_JSONOutput_UsesCountsOnly(t *testing.T) {
 	}
 
 	got := stdout.String()
-	if !strings.Contains(got, `"updated_count": 0`) {
-		t.Fatalf("json output must expose updated_count: %s", got)
+	if !strings.Contains(got, `"app_id": "app_x"`) {
+		t.Fatalf("json output must expose app_id: %s", got)
 	}
-	if !strings.Contains(got, `"created_count": 2`) {
-		t.Fatalf("json output must expose created_count: %s", got)
+	if !strings.Contains(got, `"env_file": "`+filepath.Join(projectDir, ".env.local")+`"`) {
+		t.Fatalf("json output must expose env_file: %s", got)
 	}
-	if strings.Contains(got, `"AAA"`) || strings.Contains(got, `"BBB"`) {
-		t.Fatalf("json output must not expose env key names: %s", got)
+	if !strings.Contains(got, `"database_url_expires_at": "2026-06-02 16:30:06 CST"`) {
+		t.Fatalf("json output must expose database_url_expires_at: %s", got)
 	}
-	if strings.Contains(got, `"value-a"`) || strings.Contains(got, `"value-b"`) {
-		t.Fatalf("json output must not expose env values: %s", got)
+	if strings.Contains(got, `"project_path"`) {
+		t.Fatalf("json output must not expose project_path: %s", got)
+	}
+	if strings.Contains(got, `"updated_count"`) || strings.Contains(got, `"created_count"`) {
+		t.Fatalf("json output must not expose count fields: %s", got)
+	}
+	if strings.Contains(got, `"AAA"`) || strings.Contains(got, `"value-a"`) || strings.Contains(got, `"postgres://db"`) {
+		t.Fatalf("json output must not expose env keys or env values: %s", got)
 	}
 }
 
@@ -456,6 +480,51 @@ func TestAppsEnvPull_ExecuteUsesNestedDataEnvVars(t *testing.T) {
 	}
 }
 
+func TestAppsEnvPull_ExecuteUsesArrayEnvVars(t *testing.T) {
+	factory, stdout, reg := newAppsExecuteFactory(t)
+	projectDir := t.TempDir()
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/spark/v1/apps/app_x/env_vars",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"env_vars": []interface{}{
+					map[string]interface{}{"key": "AAA", "value": "value-a"},
+					map[string]interface{}{"key": "SUDA_DATABASE_URL", "value": "postgres://db", "extras": []interface{}{map[string]interface{}{"key": "expiresAt", "value": "1780389006"}}},
+				},
+			},
+		},
+	})
+
+	if err := runAppsShortcut(t, AppsEnvPull,
+		[]string{"+env-pull", "--app-id", "app_x", "--project-path", projectDir, "--format", "pretty", "--as", "user"},
+		factory, stdout); err != nil {
+		t.Fatalf("execute err=%v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(projectDir, ".env.local"))
+	if err != nil {
+		t.Fatalf("ReadFile() err=%v", err)
+	}
+	gotFile := string(data)
+	if !strings.Contains(gotFile, `AAA = "value-a"`) {
+		t.Fatalf("expected array env_vars entry to be written, got %q", gotFile)
+	}
+	if !strings.Contains(gotFile, `SUDA_DATABASE_URL = "postgres://db"`) {
+		t.Fatalf("expected SUDA_DATABASE_URL array entry to be written, got %q", gotFile)
+	}
+	gotOut := stdout.String()
+	if !strings.Contains(gotOut, "Development database detected") {
+		t.Fatalf("expected database line in pretty output, got %q", gotOut)
+	}
+	if !strings.Contains(gotOut, "DATABASE_URL is valid until 2026-06-02 16:30:06 CST.") {
+		t.Fatalf("expected expiry line in pretty output, got %q", gotOut)
+	}
+	if strings.Contains(gotOut, "expiresAt") {
+		t.Fatalf("extras metadata must not leak to output, got %q", gotOut)
+	}
+}
+
 func TestAppsEnvPull_JSONOutputCanBeDecoded(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
 	projectDir := t.TempDir()
@@ -481,12 +550,9 @@ func TestAppsEnvPull_JSONOutputCanBeDecoded(t *testing.T) {
 	var envelope struct {
 		OK   bool `json:"ok"`
 		Data struct {
-			AppID            string `json:"app_id"`
-			ProjectPath      string `json:"project_path"`
-			EnvFile          string `json:"env_file"`
-			DatabaseDetected bool   `json:"database_detected"`
-			UpdatedCount     int    `json:"updated_count"`
-			CreatedCount     int    `json:"created_count"`
+			AppID                string `json:"app_id"`
+			EnvFile              string `json:"env_file"`
+			DatabaseURLExpiresAt string `json:"database_url_expires_at"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
@@ -497,6 +563,12 @@ func TestAppsEnvPull_JSONOutputCanBeDecoded(t *testing.T) {
 	}
 	if envelope.Data.AppID != "app_x" {
 		t.Fatalf("app_id = %q, want app_x", envelope.Data.AppID)
+	}
+	if envelope.Data.EnvFile != filepath.Join(projectDir, ".env.local") {
+		t.Fatalf("env_file = %q, want %q", envelope.Data.EnvFile, filepath.Join(projectDir, ".env.local"))
+	}
+	if envelope.Data.DatabaseURLExpiresAt != "" {
+		t.Fatalf("database_url_expires_at = %q, want empty for payload without SUDA_DATABASE_URL extras", envelope.Data.DatabaseURLExpiresAt)
 	}
 }
 
@@ -559,9 +631,40 @@ func TestResolveEnvPullTargetCleansCustomPath(t *testing.T) {
 	}
 }
 
+func TestAppsEnvPull_DatabaseExtrasWithoutExpiresAtDoesNotFail(t *testing.T) {
+	factory, stdout, reg := newAppsExecuteFactory(t)
+	projectDir := t.TempDir()
+	reg.Register(&httpmock.Stub{
+		Method: "POST",
+		URL:    "/open-apis/spark/v1/apps/app_x/env_vars",
+		Body: map[string]interface{}{
+			"code": 0,
+			"data": map[string]interface{}{
+				"env_vars": []interface{}{
+					map[string]interface{}{"key": "SUDA_DATABASE_URL", "value": "postgres://db", "extras": []interface{}{map[string]interface{}{"key": "notExpiresAt", "value": "1780389006"}}},
+				},
+			},
+		},
+	})
+
+	if err := runAppsShortcut(t, AppsEnvPull,
+		[]string{"+env-pull", "--app-id", "app_x", "--project-path", projectDir, "--format", "pretty", "--as", "user"},
+		factory, stdout); err != nil {
+		t.Fatalf("execute err=%v", err)
+	}
+
+	got := stdout.String()
+	if !strings.Contains(got, "Development database detected") {
+		t.Fatalf("expected database detection line, got %q", got)
+	}
+	if strings.Contains(got, "DATABASE_URL is valid until") {
+		t.Fatalf("did not expect expiry line when expiresAt is absent, got %q", got)
+	}
+}
+
 func TestWriteEnvPullPretty(t *testing.T) {
 	var buf bytes.Buffer
-	writeEnvPullPretty(&buf, "app_x", "/repo/.env.local", true)
+	writeEnvPullPretty(&buf, "app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtText: "2026-06-02 16:30:06 CST"})
 	got := buf.String()
 	if !strings.Contains(got, "App detected: app_x") {
 		t.Fatalf("missing app line: %q", got)
@@ -569,7 +672,13 @@ func TestWriteEnvPullPretty(t *testing.T) {
 	if !strings.Contains(got, "Development database detected") {
 		t.Fatalf("missing database line: %q", got)
 	}
-	if !strings.Contains(got, "/repo/.env.local") {
-		t.Fatalf("missing env file path: %q", got)
+	if !strings.Contains(got, "✓ Local environment written to /repo/.env.local") {
+		t.Fatalf("missing env file write line: %q", got)
+	}
+	if !strings.Contains(got, "\n\nDATABASE_URL is valid until 2026-06-02 16:30:06 CST.\n") {
+		t.Fatalf("missing blank-line separated expiry block: %q", got)
+	}
+	if !strings.Contains(got, "Run `lark-cli apps +env-pull --app-id <app_id>` again to refresh it.") {
+		t.Fatalf("missing refresh hint line: %q", got)
 	}
 }
