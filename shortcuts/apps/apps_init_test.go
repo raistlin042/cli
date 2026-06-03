@@ -29,6 +29,32 @@ func testRuntimeWithDir(t *testing.T, dirFlag string) *common.RuntimeContext {
 	return common.TestNewRuntimeContext(cmd, nil)
 }
 
+// testRuntimeWithTemplate builds a *common.RuntimeContext with "dir" and
+// "template" string flags registered, mirroring +init's runtime flag set. The
+// template flag is registered with an empty default (matching the real flag,
+// which no longer carries Default: defaultTemplate); pass tpl="" to model an
+// omitted --template and a non-empty tpl to model an explicit one.
+func testRuntimeWithTemplate(t *testing.T, dirFlag, tpl string) *common.RuntimeContext {
+	t.Helper()
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().String("dir", dirFlag, "")
+	cmd.Flags().String("template", tpl, "")
+	return common.TestNewRuntimeContext(cmd, nil)
+}
+
+func TestResolveTemplate(t *testing.T) {
+	if got := resolveTemplate(testRuntimeWithTemplate(t, "", "foo"), "app_x"); got != "foo" {
+		t.Errorf("explicit --template = %q, want foo", got)
+	}
+	if got := resolveTemplate(testRuntimeWithTemplate(t, "", ""), "app_x"); got != defaultTemplate {
+		t.Errorf("omitted --template = %q, want fallback %q", got, defaultTemplate)
+	}
+	// Whitespace-only --template is treated as omitted -> fallback.
+	if got := resolveTemplate(testRuntimeWithTemplate(t, "", "   "), "app_x"); got != defaultTemplate {
+		t.Errorf("whitespace --template = %q, want fallback %q", got, defaultTemplate)
+	}
+}
+
 func TestResolveTargetPath(t *testing.T) {
 	got, err := resolveTargetPath(testRuntimeWithDir(t, ""), "app_x")
 	if err != nil {
@@ -300,8 +326,13 @@ func TestAppsInit_EmptyRepo_EndToEnd(t *testing.T) {
 	if _, ok := data["npx_skipped"]; ok {
 		t.Error("npx_skipped must be removed")
 	}
-	if findCall(f.calls, "npx", miaodaCLIPkg) == nil {
+	// --template is omitted here, so resolveTemplate falls back to
+	// defaultTemplate and `app init` must still receive --template nestjs-react-fullstack.
+	c := findCall(f.calls, "npx", miaodaCLIPkg)
+	if c == nil {
 		t.Error("npx scaffold not invoked")
+	} else if !containsAll(c, "app", "init", "--template", defaultTemplate, "--app-id", "app_x") {
+		t.Errorf("app init missing expected --template fallback args: %v", c)
 	}
 }
 

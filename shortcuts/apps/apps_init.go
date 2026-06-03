@@ -59,7 +59,7 @@ var AppsInit = common.Shortcut{
 		// check lives in Validate (output.ErrValidation -> ExitValidation=2).
 		{Name: "app-id", Desc: "Miaoda app ID"},
 		{Name: "dir", Desc: "clone target directory; absolute or relative path (default ./<app-id>)"},
-		{Name: "template", Default: defaultTemplate, Desc: "scaffold template used for an empty repo (app init)"},
+		{Name: "template", Desc: "scaffold template for an empty repo; optional — if omitted, derived from the app's tech stack"},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
@@ -69,7 +69,7 @@ var AppsInit = common.Shortcut{
 	},
 	DryRun: func(ctx context.Context, rctx *common.RuntimeContext) *common.DryRunAPI {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
-		template := strings.TrimSpace(rctx.Str("template"))
+		template := resolveTemplate(rctx, appID)
 		dry := common.NewDryRunAPI().
 			Desc("Initialize Miaoda app repository (credential-init, clone, checkout, npx scaffold, optional commit/push)").
 			Set("credential_init", fmt.Sprintf("apps +git-credential-init --app-id %s --format json", appID)).
@@ -96,6 +96,29 @@ var AppsInit = common.Shortcut{
 // defaultCloneDir returns the default clone target (./<app-id>) for an app ID.
 func defaultCloneDir(appID string) string {
 	return filepath.Join(".", appID)
+}
+
+// resolveTemplate returns the scaffold template for an empty-repo `app init`.
+// An explicit --template wins. When omitted, it should be derived from the
+// app's tech stack.
+// TODO(apps-init): look up the app by appID via the apps API (e.g. `apps +list`
+// or a get-app endpoint), read its tech stack, and map tech-stack -> template
+// through a (future) enum. Until that lands, fall back to defaultTemplate.
+func resolveTemplate(rctx *common.RuntimeContext, appID string) string {
+	if t := strings.TrimSpace(rctx.Str("template")); t != "" {
+		return t
+	}
+	// TODO(apps-init): derive from app tech stack (apps API + enum mapping).
+	return defaultTemplate
+}
+
+// initLogf writes a one-line progress message to stderr. stdout stays reserved
+// for the structured JSON envelope, so progress never pollutes it. Callers must
+// never pass a raw repository_url (it may embed a token) — pass step names,
+// clone_path, branch, or scaffold kind, and route any URL through
+// redactURLCredentials first.
+func initLogf(rctx *common.RuntimeContext, format string, args ...interface{}) {
+	fmt.Fprintf(rctx.IO().ErrOut, "→ "+format+"\n", args...)
 }
 
 // resolveTargetPath computes the absolute clone target from --dir (or the
@@ -283,6 +306,7 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	// Already-initialized short-circuit: a dir containing .spark/meta.json is an
 	// initialized Miaoda app repo -> friendly no-op, no clone/scaffold.
 	if isAlreadyInitialized(dir) {
+		initLogf(rctx, "Already initialized at %s — nothing to do", dir)
 		out := map[string]interface{}{
 			"app_id":     appID,
 			"clone_path": dir,
@@ -311,6 +335,7 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		return err
 	}
 
+	initLogf(rctx, "Issuing repository credentials for %s...", appID)
 	repoURL, err := issueCredentials(ctx, rctx, appID)
 	if err != nil {
 		return err
@@ -319,14 +344,17 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		return err
 	}
 
+	initLogf(rctx, "Cloning into %s...", dir)
 	if _, stderr, err := initRunner.Run(ctx, "", "git", "clone", "--", repoURL, dir); err != nil {
 		return output.Errorf(output.ExitAPI, "git_clone", "git clone failed: %s", gitErr(stderr, err))
 	}
+	initLogf(rctx, "Checking out %s...", defaultInitBranch)
 	if _, stderr, err := initRunner.Run(ctx, dir, "git", "checkout", defaultInitBranch); err != nil {
 		return output.Errorf(output.ExitAPI, "git_checkout", "git checkout %s failed: %s", defaultInitBranch, gitErr(stderr, err))
 	}
 
-	scaffold, err := runScaffold(ctx, dir, appID, strings.TrimSpace(rctx.Str("template")))
+	initLogf(rctx, "Scaffolding (%s)...", "running miaoda-cli")
+	scaffold, err := runScaffold(ctx, dir, appID, resolveTemplate(rctx, appID))
 	if err != nil {
 		return err
 	}
@@ -334,6 +362,11 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	committed, pushed, err := commitAndPushIfDirty(ctx, dir)
 	if err != nil {
 		return err
+	}
+	if pushed {
+		initLogf(rctx, "Committed and pushed to %s", defaultInitBranch)
+	} else {
+		initLogf(rctx, "Working tree clean — skipped commit/push")
 	}
 
 	out := map[string]interface{}{
