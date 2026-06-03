@@ -31,6 +31,12 @@ const (
 	commitMsgUpgrade   = "chore: initialize Miaoda app repository"
 )
 
+// scaffold kinds returned by runScaffold and consumed by commitAndPushIfDirty.
+const (
+	scaffoldKindInit    = "init"
+	scaffoldKindUpgrade = "upgrade"
+)
+
 const (
 	miaodaCLIPkg    = "@lark-apaas/miaoda-cli@alpha"
 	defaultTemplate = "nestjs-react-fullstack"
@@ -265,7 +271,7 @@ func runScaffold(ctx context.Context, dir, appID, template string) (string, erro
 		if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "app", "init", "--template", template, "--app-id", appID); err != nil {
 			return "", output.Errorf(output.ExitAPI, "npx_app_init", "npx app init failed: %s", gitErr(stderr, err))
 		}
-		return "init", nil
+		return scaffoldKindInit, nil
 	}
 	if _, stderr, err := initRunner.Run(ctx, dir, "npx", miaodaCLIPkg, "app", "upgrade"); err != nil {
 		return "", output.Errorf(output.ExitAPI, "npx_app_upgrade", "npx app upgrade failed: %s", gitErr(stderr, err))
@@ -278,7 +284,7 @@ func runScaffold(ctx context.Context, dir, appID, template string) (string, erro
 			return "", output.Errorf(output.ExitAPI, "npx_skills_sync", "npx skills sync failed: %s", gitErr(stderr, err))
 		}
 	}
-	return "upgrade", nil
+	return scaffoldKindUpgrade, nil
 }
 
 // parseRepoURLFromEnvelope extracts data.repository_url from a lark-cli JSON
@@ -440,7 +446,7 @@ func commitAndPushIfDirty(ctx context.Context, dir, scaffoldKind string) (commit
 		return false, false, nil
 	}
 
-	if scaffoldKind == "init" {
+	if scaffoldKind == scaffoldKindInit {
 		hasAppCode, hasConfig := classifyPorcelain(status)
 		if hasAppCode {
 			if e := stageAndCommit(ctx, dir, commitMsgAppCode, ".", ":(exclude).spark", ":(exclude).agent"); e != nil {

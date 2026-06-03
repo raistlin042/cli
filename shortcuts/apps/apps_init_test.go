@@ -806,6 +806,14 @@ func TestAppsInit_EmptyRepo_TwoCommits(t *testing.T) {
 	if len(msgs) != 2 || msgs[0] != want[0] || msgs[1] != want[1] {
 		t.Fatalf("commit messages = %v, want %v", msgs, want)
 	}
+	// The split's core invariant: app-code commit excludes .spark/.agent;
+	// config commit stages exactly .spark/.agent. Assert both git add pathspecs.
+	if findCallArg(f.calls, "git", "add", "-A", "--", ".", ":(exclude).spark", ":(exclude).agent") == nil {
+		t.Errorf("app-code git add missing exclude pathspecs; calls=%v", f.calls)
+	}
+	if findCallArg(f.calls, "git", "add", "-A", "--", ".spark", ".agent") == nil {
+		t.Errorf("config git add missing .spark/.agent pathspec; calls=%v", f.calls)
+	}
 	data := parseEnvelopeData(t, stdout)
 	if data["committed"] != true || data["pushed"] != true {
 		t.Errorf("committed/pushed = %v/%v, want true/true", data["committed"], data["pushed"])
