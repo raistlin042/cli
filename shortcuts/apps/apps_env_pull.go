@@ -12,22 +12,27 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/internal/validate"
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
+type envPullDatabaseInfo struct {
+	Detected      bool
+	ExpiresAtText string
+}
+
 // AppsEnvPull pulls startup env vars for an app into the local .env.local file.
 var AppsEnvPull = common.Shortcut{
-	Service:           appsService,
-	Command:           "+env-pull",
-	Description:       "Pull app startup env vars into the local project .env.local",
-	Risk:              "write",
-	Scopes:            []string{},
-	ConditionalScopes: []string{"spark:app:read"},
-	AuthTypes:         []string{"user"},
-	HasFormat:         true,
+	Service:     appsService,
+	Command:     "+env-pull",
+	Description: "Pull app startup env vars into the local project .env.local",
+	Risk:        "write",
+	Scopes:      []string{"spark:app:read"},
+	AuthTypes:   []string{"user"},
+	HasFormat:   true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "app ID"},
 		{Name: "project-path", Desc: "local project root path (defaults to current directory)"},
@@ -56,7 +61,7 @@ var AppsEnvPull = common.Shortcut{
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
-		projectPath, envFile, err := resolveEnvPullTarget(strings.TrimSpace(rctx.Str("project-path")))
+		_, envFile, err := resolveEnvPullTarget(strings.TrimSpace(rctx.Str("project-path")))
 		if err != nil {
 			return &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: fmt.Sprintf("--project-path: %v", err)}, Param: "project-path", Cause: err}
 		}
@@ -73,7 +78,7 @@ var AppsEnvPull = common.Shortcut{
 			return err
 		}
 
-		envVars, err := extractEnvPullVars(data)
+		envVars, databaseInfo, err := extractEnvPullVars(data)
 		if err != nil {
 			return err
 		}
@@ -89,10 +94,12 @@ var AppsEnvPull = common.Shortcut{
 			return &errs.InternalError{Problem: errs.Problem{Category: errs.CategoryInternal, Message: fmt.Sprintf("cannot write %s: %v", envFile, err)}, Cause: err}
 		}
 
-		result := buildEnvPullSuccessData(appID, projectPath, envFile, hasEnvPullDatabase(envVars), len(updated), len(created))
+		result := buildEnvPullSuccessData(appID, envFile, databaseInfo)
 		rctx.OutFormat(result, nil, func(w io.Writer) {
-			writeEnvPullPretty(w, appID, envFile, hasEnvPullDatabase(envVars))
+			writeEnvPullPretty(w, appID, envFile, databaseInfo)
 		})
+		_ = updated
+		_ = created
 		return nil
 	},
 }
@@ -129,7 +136,7 @@ func checkEnvPullTarget(envFile string) error {
 	return nil
 }
 
-func extractEnvPullVars(data map[string]interface{}) (map[string]string, error) {
+func extractEnvPullVars(data map[string]interface{}) (map[string]string, envPullDatabaseInfo, error) {
 	raw := data["env_vars"]
 	if raw == nil {
 		if nested, ok := data["data"].(map[string]interface{}); ok {
@@ -137,21 +144,46 @@ func extractEnvPullVars(data map[string]interface{}) (map[string]string, error) 
 		}
 	}
 	if raw == nil {
-		return nil, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object of string values"}}
+		return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
 	}
-	obj, ok := raw.(map[string]interface{})
-	if !ok {
-		return nil, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object of string values"}}
-	}
-	out := make(map[string]string, len(obj))
-	for key, value := range obj {
-		s, ok := value.(string)
-		if !ok {
-			return nil, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object of string values"}}
+
+	switch typed := raw.(type) {
+	case map[string]interface{}:
+		out := make(map[string]string, len(typed))
+		for key, value := range typed {
+			s, ok := value.(string)
+			if !ok {
+				return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
+			}
+			out[key] = s
 		}
-		out[key] = s
+		return out, envPullDatabaseInfo{Detected: hasEnvPullDatabase(out)}, nil
+	case []interface{}:
+		out := make(map[string]string, len(typed))
+		info := envPullDatabaseInfo{}
+		for _, item := range typed {
+			entry, ok := item.(map[string]interface{})
+			if !ok {
+				return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
+			}
+			key, ok := entry["key"].(string)
+			if !ok || strings.TrimSpace(key) == "" {
+				return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
+			}
+			value, ok := entry["value"].(string)
+			if !ok {
+				return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
+			}
+			out[key] = value
+			if key == "SUDA_DATABASE_URL" {
+				info.Detected = true
+				info.ExpiresAtText = formatEnvPullDatabaseExpiry(entry["extras"])
+			}
+		}
+		return out, info, nil
+	default:
+		return nil, envPullDatabaseInfo{}, &errs.ValidationError{Problem: errs.Problem{Category: errs.CategoryValidation, Message: "response field env_vars must be an object or array of key/value entries"}}
 	}
-	return out, nil
 }
 
 func readEnvPullFile(envFile string) (string, error) {
@@ -249,15 +281,15 @@ func formatEnvPullAssignment(key, value string) string {
 	return fmt.Sprintf("%s = %s", key, strconv.Quote(value))
 }
 
-func buildEnvPullSuccessData(appID, projectPath, envFile string, databaseDetected bool, updatedCount, createdCount int) map[string]interface{} {
-	return map[string]interface{}{
-		"app_id":            appID,
-		"project_path":      projectPath,
-		"env_file":          envFile,
-		"database_detected": databaseDetected,
-		"updated_count":     updatedCount,
-		"created_count":     createdCount,
+func buildEnvPullSuccessData(appID, envFile string, databaseInfo envPullDatabaseInfo) map[string]interface{} {
+	result := map[string]interface{}{
+		"app_id":   appID,
+		"env_file": envFile,
 	}
+	if databaseInfo.ExpiresAtText != "" {
+		result["database_url_expires_at"] = databaseInfo.ExpiresAtText
+	}
+	return result
 }
 
 func hasEnvPullDatabase(envVars map[string]string) bool {
@@ -265,12 +297,45 @@ func hasEnvPullDatabase(envVars map[string]string) bool {
 	return ok
 }
 
-func writeEnvPullPretty(w io.Writer, appID, envFile string, databaseDetected bool) {
+func formatEnvPullDatabaseExpiry(rawExtras interface{}) string {
+	extras, ok := rawExtras.([]interface{})
+	if !ok {
+		return ""
+	}
+	for _, raw := range extras {
+		entry, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		key, _ := entry["key"].(string)
+		if key != "expiresAt" {
+			continue
+		}
+		switch value := entry["value"].(type) {
+		case string:
+			ts, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+			if err != nil {
+				return ""
+			}
+			return time.Unix(ts, 0).Local().Format("2006-01-02 15:04:05 MST")
+		case float64:
+			return time.Unix(int64(value), 0).Local().Format("2006-01-02 15:04:05 MST")
+		}
+	}
+	return ""
+}
+
+func writeEnvPullPretty(w io.Writer, appID, envFile string, databaseInfo envPullDatabaseInfo) {
 	fmt.Fprintf(w, "✓ App detected: %s\n", appID)
-	if databaseDetected {
+	if databaseInfo.Detected {
 		fmt.Fprintln(w, "✓ Development database detected")
 	}
-	fmt.Fprintf(w, "✓ Local environment written to %s. Run `lark-cli apps +env-pull` again to refresh it.\n", envFile)
+	fmt.Fprintf(w, "✓ Local environment written to %s\n", envFile)
+	if databaseInfo.ExpiresAtText != "" {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "DATABASE_URL is valid until %s.\n", databaseInfo.ExpiresAtText)
+	}
+	fmt.Fprintf(w, "Run `lark-cli apps +env-pull --app-id <app_id>` again to refresh it.\n")
 }
 
 func ensureTrailingNewline(s string) string {
