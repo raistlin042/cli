@@ -1103,6 +1103,17 @@ func TestIsEmptyRepo_GitError(t *testing.T) {
 	}
 }
 
+func TestRunScaffold_NonEmpty_SyncFailure(t *testing.T) {
+	// Non-empty repo takes the `app sync` path; make that npx call fail.
+	withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+		"git ls-files": {stdout: "src/x.ts\n"},
+		"npx -y":       {err: errors.New("sync boom")},
+	}})
+	if _, err := runScaffold(context.Background(), t.TempDir(), "app_x", "tpl"); err == nil {
+		t.Error("npx app sync failure must surface as an error")
+	}
+}
+
 func TestStageAndCommit_Errors(t *testing.T) {
 	t.Run("git add fails", func(t *testing.T) {
 		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
