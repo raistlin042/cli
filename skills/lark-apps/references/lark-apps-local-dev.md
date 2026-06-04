@@ -11,7 +11,7 @@
 - **代码读写一律走原生 `git`。** CLI 只做 `+git-credential-init`（配凭证）和 `+publish`（部署）两件事，clone/pull/push/diff/log 全用原生 git。
 - **`sprint/default` 是工作分支，`main` 是部署态只读快照。** 平时只在 `sprint/default` 上 push；`main` 只能由 `+publish` 推进。
 - **DB 调试经 `+db-*` 命令（妙搭封装）+ 一次性开启。** 用 `+db-table-list` / `+db-table-schema` / `+db-sql` 经妙搭服务端访问应用的多环境数据库，不是裸连。**多环境数据库推荐在 `+create` 时就勾选开启**（`--enable-multi-env-db`），开了就能本地调库；**只有存量应用**才需要事后手动跑一次 `+db-multi-env-init` 开启，再做 DB 调试。
-- **env 不走独立命令。** 环境变量由脚手架的 `npm run dev` 在起本地开发时**自动拉取**，且**不阻塞** `npm run dev`（后台拉，不会卡住启动）。没有 `apps +env-pull`。
+- **env 不走独立命令。** 环境变量由脚手架的 `npm run dev` 在起本地开发时**自动拉取**，且**不阻塞** `npm run dev`（后台拉，不会卡住启动）。不需要手动执行 `apps +env-pull`。
 - **凭证自动管理。** `+git-credential-init` 配一次，后续 git 鉴权由 credential helper 自动触发；DB 凭证在 env 里、`npm run dev` 时自动更新。不用手动刷新 PAT，也没有续期命令。
 
 ## 端到端流程

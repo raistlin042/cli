@@ -68,7 +68,7 @@ lark-cli apps +session-read --app-id app_xxx --session-id sess_xxx              
 2. **`sprint/default` / `main` 双分支模型。** `sprint/default` 是唯一工作分支（本地 push、云端 chat 提交都进它）；`main` 是「当前部署态」只读快照，**只能由 `+publish` 推进**（发布成功后服务端自动 fast-forward `main ← sprint/default`）。客户端不要 push main、不要 force-push，服务端 pre-receive hook 会硬拒。
 3. **DB 调试走 `+db-*` 命令（经妙搭封装），不是裸连数据库。** 用 `+db-table-list` / `+db-table-schema` / `+db-sql` 经妙搭服务端鉴权访问应用的多环境数据库，做查表 / 看 schema / 跑 SQL 调试，不用自己拼连接串。（应用运行时自己连库用的是 env 里的凭证，那是另一回事。）
 4. **凭证自动管理，不用手动刷新。** `+git-credential-init` 配好后，后续 git 操作的鉴权由 git credential helper **自动触发**；DB 凭证在环境变量里、`npm run dev` 时**自动更新**——不存在"PAT 过期要手动刷新"这回事，别去找刷新 / 续期命令。
-5. **环境变量不走独立命令。** env 由脚手架的 `npm run dev` 在启动本地开发时**自动拉取**，且**不阻塞** `npm run dev` 执行（拉取在后台进行）。没有 `apps +env-pull` 命令，别去找。
+5. **环境变量不走独立命令。** env 由脚手架的 `npm run dev` 在启动本地开发时**自动拉取**，且**不阻塞** `npm run dev` 执行（拉取在后台进行）。 不需要手动执行 `apps +env-pull` 命令。
 
 ## 前置条件 — 执行操作前必读
 
