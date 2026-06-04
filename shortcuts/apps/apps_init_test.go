@@ -1102,3 +1102,61 @@ func TestIsEmptyRepo_GitError(t *testing.T) {
 		t.Error("git ls-files failure must surface as an error")
 	}
 }
+
+func TestStageAndCommit_Errors(t *testing.T) {
+	t.Run("git add fails", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git add": {err: errors.New("boom")},
+		}})
+		if err := stageAndCommit(context.Background(), t.TempDir(), "msg", "."); err == nil {
+			t.Error("git add failure must surface as an error")
+		}
+	})
+	t.Run("git commit fails", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git commit": {err: errors.New("boom")},
+		}})
+		if err := stageAndCommit(context.Background(), t.TempDir(), "msg", "."); err == nil {
+			t.Error("git commit failure must surface as an error")
+		}
+	})
+}
+
+func TestCommitAndPushIfDirty_Branches(t *testing.T) {
+	t.Run("clean tree is a no-op", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git status": {stdout: "   "},
+		}})
+		committed, pushed, err := commitAndPushIfDirty(context.Background(), t.TempDir(), scaffoldKindUpgrade)
+		if err != nil || committed || pushed {
+			t.Errorf("clean tree: got committed=%v pushed=%v err=%v, want false,false,nil", committed, pushed, err)
+		}
+	})
+	t.Run("status error", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git status": {err: errors.New("boom")},
+		}})
+		if _, _, err := commitAndPushIfDirty(context.Background(), t.TempDir(), scaffoldKindUpgrade); err == nil {
+			t.Error("git status failure must surface as an error")
+		}
+	})
+	t.Run("upgrade path commits and pushes", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git status": {stdout: " M src/app.ts\n"},
+		}})
+		committed, pushed, err := commitAndPushIfDirty(context.Background(), t.TempDir(), scaffoldKindUpgrade)
+		if err != nil || !committed || !pushed {
+			t.Errorf("dirty upgrade: got committed=%v pushed=%v err=%v, want true,true,nil", committed, pushed, err)
+		}
+	})
+	t.Run("push failure", func(t *testing.T) {
+		withFakeRunner(t, &fakeCommandRunner{results: map[string]fakeCallResult{
+			"git status": {stdout: " M src/app.ts\n"},
+			"git push":   {err: errors.New("rejected")},
+		}})
+		committed, pushed, err := commitAndPushIfDirty(context.Background(), t.TempDir(), scaffoldKindUpgrade)
+		if err == nil || !committed || pushed {
+			t.Errorf("push failure: got committed=%v pushed=%v err=%v, want true,false,err", committed, pushed, err)
+		}
+	})
+}
