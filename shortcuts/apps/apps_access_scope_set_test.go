@@ -8,8 +8,61 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/larksuite/cli/internal/httpmock"
+	"github.com/larksuite/cli/shortcuts/common"
 )
+
+func testRuntimeAccessScope(t *testing.T, scope, targets, approver string, applyEnabled, requireLogin bool) *common.RuntimeContext {
+	t.Helper()
+	cmd := &cobra.Command{Use: "access-scope-set"}
+	cmd.Flags().String("scope", scope, "")
+	cmd.Flags().String("targets", targets, "")
+	cmd.Flags().String("approver", approver, "")
+	cmd.Flags().Bool("apply-enabled", applyEnabled, "")
+	cmd.Flags().Bool("require-login", requireLogin, "")
+	return common.TestNewRuntimeContext(cmd, nil)
+}
+
+func TestBuildAccessScopeBody_Branches(t *testing.T) {
+	t.Run("invalid scope", func(t *testing.T) {
+		if _, err := buildAccessScopeBody(testRuntimeAccessScope(t, "bogus", "", "", false, false)); err == nil {
+			t.Error("unknown scope must error")
+		}
+	})
+	t.Run("specific with all target kinds and approver", func(t *testing.T) {
+		body, err := buildAccessScopeBody(testRuntimeAccessScope(t,
+			"specific",
+			`[{"type":"user","id":"u1"},{"type":"department","id":"d1"},{"type":"chat","id":"c1"}]`,
+			"ou_appr", true, false))
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		if body["scope"] != "Range" {
+			t.Errorf("scope=%v want Range", body["scope"])
+		}
+		for _, k := range []string{"users", "departments", "chats", "apply_config"} {
+			if _, ok := body[k]; !ok {
+				t.Errorf("missing %q in body=%v", k, body)
+			}
+		}
+	})
+	t.Run("specific with invalid targets JSON", func(t *testing.T) {
+		if _, err := buildAccessScopeBody(testRuntimeAccessScope(t, "specific", "{bad", "", false, false)); err == nil {
+			t.Error("invalid targets JSON must error")
+		}
+	})
+	t.Run("public sets require_login", func(t *testing.T) {
+		body, err := buildAccessScopeBody(testRuntimeAccessScope(t, "public", "", "", false, true))
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		if body["scope"] != "All" || body["require_login"] != true {
+			t.Errorf("public body=%v", body)
+		}
+	})
+}
 
 func TestAppsAccessScopeSet_Specific(t *testing.T) {
 	factory, stdout, reg := newAppsExecuteFactory(t)
