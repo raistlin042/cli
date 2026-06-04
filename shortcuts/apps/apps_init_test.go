@@ -1048,3 +1048,57 @@ func TestCommitAndPushIfDirty_RealGit_NonEmptyUpgrade(t *testing.T) {
 		t.Errorf(".spark/meta.json should be committed; tracked=%q", tracked)
 	}
 }
+
+func TestEnsureEmptyDir_RejectsNonDirAndNonEmpty(t *testing.T) {
+	t.Run("non-existent is ok", func(t *testing.T) {
+		if err := ensureEmptyDir(filepath.Join(t.TempDir(), "nope")); err != nil {
+			t.Errorf("non-existent dir should be ok, got %v", err)
+		}
+	})
+	t.Run("file is rejected", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "afile")
+		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := ensureEmptyDir(f); err == nil {
+			t.Error("a regular file must be rejected")
+		}
+	})
+	t.Run("non-empty dir is rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "child"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := ensureEmptyDir(dir); err == nil {
+			t.Error("a non-empty dir must be rejected")
+		}
+	})
+	t.Run("empty dir is ok", func(t *testing.T) {
+		if err := ensureEmptyDir(t.TempDir()); err != nil {
+			t.Errorf("empty dir should be ok, got %v", err)
+		}
+	})
+}
+
+func TestEnsureMetaAppID_MalformedJSON(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, metaRelPath), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureMetaAppID(dir, "app_x"); err == nil {
+		t.Error("malformed meta.json must return a parse error")
+	}
+}
+
+func TestIsEmptyRepo_GitError(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"git ls-files": {err: errors.New("fatal: not a git repository")},
+	}}
+	withFakeRunner(t, f)
+	if _, err := isEmptyRepo(context.Background(), t.TempDir()); err == nil {
+		t.Error("git ls-files failure must surface as an error")
+	}
+}
