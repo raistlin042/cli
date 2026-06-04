@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -764,8 +765,8 @@ func TestClassifyPorcelain(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			gotApp, gotCfg := classifyPorcelain(c.status)
-			if gotApp != c.wantAppCode || gotCfg != c.wantConfig {
-				t.Errorf("classifyPorcelain(%q) = (app=%v,cfg=%v), want (app=%v,cfg=%v)",
+			if (len(gotApp) > 0) != c.wantAppCode || (len(gotCfg) > 0) != c.wantConfig {
+				t.Errorf("classifyPorcelain(%q) = (app=%v,cfg=%v), want app=%v cfg=%v",
 					c.status, gotApp, gotCfg, c.wantAppCode, c.wantConfig)
 			}
 		})
@@ -806,13 +807,21 @@ func TestAppsInit_EmptyRepo_TwoCommits(t *testing.T) {
 	if len(msgs) != 2 || msgs[0] != want[0] || msgs[1] != want[1] {
 		t.Fatalf("commit messages = %v, want %v", msgs, want)
 	}
-	// The split's core invariant: app-code commit excludes .spark/.agent;
-	// config commit stages exactly .spark/.agent. Assert both git add pathspecs.
-	if findCallArg(f.calls, "git", "add", "-A", "--", ".", ":(exclude).spark", ":(exclude).agent") == nil {
-		t.Errorf("app-code git add missing exclude pathspecs; calls=%v", f.calls)
+	// The split's core invariant: each commit stages its own group's exact
+	// porcelain paths (no :(exclude) magic, no explicitly-named ignored dirs —
+	// see TestCommitAndPushIfDirty_RealGit_IgnoredAgentDir). The app-code commit
+	// stages src/app.ts and not .spark/meta.json; the config commit, the reverse.
+	appAdd := findCallArg(f.calls, "git", "add", "-A", "--", "src/app.ts")
+	if appAdd == nil {
+		t.Errorf("app-code git add missing src/app.ts; calls=%v", f.calls)
+	} else if containsAll(appAdd, ".spark/meta.json") {
+		t.Errorf("app-code commit must not stage config paths; got %v", appAdd)
 	}
-	if findCallArg(f.calls, "git", "add", "-A", "--", ".spark", ".agent") == nil {
-		t.Errorf("config git add missing .spark/.agent pathspec; calls=%v", f.calls)
+	cfgAdd := findCallArg(f.calls, "git", "add", "-A", "--", ".spark/meta.json")
+	if cfgAdd == nil {
+		t.Errorf("config git add missing .spark/meta.json; calls=%v", f.calls)
+	} else if containsAll(cfgAdd, "src/app.ts") {
+		t.Errorf("config commit must not stage app code; got %v", cfgAdd)
 	}
 	data := parseEnvelopeData(t, stdout)
 	if data["committed"] != true || data["pushed"] != true {
@@ -882,5 +891,90 @@ func TestAppsInit_NonEmpty_SingleInitCommit(t *testing.T) {
 		if len(c) >= 3 && c[1] == "git" && c[2] == "commit" && !containsAll(c, "--no-verify") {
 			t.Errorf("commit missing --no-verify: %v", c)
 		}
+	}
+}
+
+// gitMust runs a git command in dir with a real binary, failing the test on error.
+func gitMust(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v in %s failed: %v\n%s", args, dir, err, out)
+	}
+	return string(out)
+}
+
+// TestCommitAndPushIfDirty_RealGit_IgnoredAgentDir exercises the empty-repo
+// commit split against a REAL git repo whose scaffold gitignores .agent. This
+// reproduces the production failure where `git add -- .spark .agent` errored on
+// the ignored .agent path; the fix stages the config remainder with ".".
+func TestCommitAndPushIfDirty_RealGit_IgnoredAgentDir(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	// Bare remote so `git push origin sprint/default` succeeds.
+	remote := t.TempDir()
+	gitMust(t, remote, "init", "--bare", "-q", "--initial-branch", defaultInitBranch)
+
+	dir := t.TempDir()
+	gitMust(t, dir, "init", "-q", "--initial-branch", defaultInitBranch)
+	gitMust(t, dir, "config", "user.email", "t@example.com")
+	gitMust(t, dir, "config", "user.name", "Test")
+	gitMust(t, dir, "remote", "add", "origin", remote)
+
+	// Scaffold: app code + .spark config + an IGNORED .agent dir.
+	mustWrite(t, filepath.Join(dir, ".gitignore"), ".agent\n")
+	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, "src", "x.ts"), "export const x = 1\n")
+	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".spark", "meta.json"), `{"app_id":"app_x"}`)
+	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agent", "skill.md"), "ignored\n")
+
+	// Use the real exec runner (not the fake) so gitignore semantics apply.
+	orig := initRunner
+	initRunner = execCommandRunner{}
+	t.Cleanup(func() { initRunner = orig })
+
+	committed, pushed, err := commitAndPushIfDirty(context.Background(), dir, scaffoldKindInit)
+	if err != nil {
+		t.Fatalf("commitAndPushIfDirty returned error: %v", err)
+	}
+	if !committed || !pushed {
+		t.Fatalf("committed=%v pushed=%v, want true/true", committed, pushed)
+	}
+
+	// Two commits, newest first: config then app code.
+	subjects := strings.Split(strings.TrimSpace(gitMust(t, dir, "log", "--format=%s", "-2")), "\n")
+	want := []string{commitMsgAppConfig, commitMsgAppCode}
+	if len(subjects) != 2 || subjects[0] != want[0] || subjects[1] != want[1] {
+		t.Fatalf("commit subjects = %v, want %v", subjects, want)
+	}
+
+	// .agent must NOT be tracked; .spark and src must be.
+	tracked := gitMust(t, dir, "ls-files")
+	if strings.Contains(tracked, ".agent") {
+		t.Errorf("ignored .agent must not be committed; tracked=%q", tracked)
+	}
+	if !strings.Contains(tracked, ".spark/meta.json") {
+		t.Errorf(".spark/meta.json should be committed; tracked=%q", tracked)
+	}
+	if !strings.Contains(tracked, "src/x.ts") {
+		t.Errorf("src/x.ts should be committed; tracked=%q", tracked)
+	}
+}
+
+func mustWrite(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -447,15 +447,17 @@ func commitAndPushIfDirty(ctx context.Context, dir, scaffoldKind string) (commit
 	}
 
 	if scaffoldKind == scaffoldKindInit {
-		hasAppCode, hasConfig := classifyPorcelain(status)
-		if hasAppCode {
-			if e := stageAndCommit(ctx, dir, commitMsgAppCode, ".", ":(exclude).spark", ":(exclude).agent"); e != nil {
+		// Stage each group by its exact porcelain paths (never gitignored files),
+		// so neither `git add` errors on an ignored path like .agent.
+		appPaths, configPaths := classifyPorcelain(status)
+		if len(appPaths) > 0 {
+			if e := stageAndCommit(ctx, dir, commitMsgAppCode, appPaths...); e != nil {
 				return committed, false, e
 			}
 			committed = true
 		}
-		if hasConfig {
-			if e := stageAndCommit(ctx, dir, commitMsgAppConfig, ".spark", ".agent"); e != nil {
+		if len(configPaths) > 0 {
+			if e := stageAndCommit(ctx, dir, commitMsgAppConfig, configPaths...); e != nil {
 				return committed, false, e
 			}
 			committed = true
@@ -493,24 +495,27 @@ func stageAndCommit(ctx context.Context, dir, message string, pathspecs ...strin
 	return nil
 }
 
-// classifyPorcelain parses `git status --porcelain` output and reports whether
-// the changed paths include "app code" (anything outside .spark/ and .agent/)
-// and/or "Miaoda config" (.spark/ and .agent/). Used to decide which of the two
-// empty-repo init commits to make. Parsing is read-only — paths never flow back
-// into any command (staging uses hardcoded pathspecs, not these strings).
-func classifyPorcelain(status string) (hasAppCode, hasConfig bool) {
+// classifyPorcelain parses `git status --porcelain` output and partitions the
+// changed paths into the "app code" group (anything outside .spark/ and .agent/)
+// and the "Miaoda config" group (.spark/ and .agent/). It returns the exact
+// porcelain paths so callers can stage them verbatim: porcelain never lists
+// gitignored files, so `git add -- <these paths>` never trips git's ignored-path
+// error. (Naming an ignored dir explicitly — or combining a "." pathspec with
+// :(exclude) magic — DOES error when a scaffold template gitignores e.g. .agent,
+// which is why we stage exact paths instead of pathspecs.)
+func classifyPorcelain(status string) (appPaths, configPaths []string) {
 	for _, line := range strings.Split(status, "\n") {
 		p := porcelainPath(line)
 		if p == "" {
 			continue
 		}
 		if isConfigPath(p) {
-			hasConfig = true
+			configPaths = append(configPaths, p)
 		} else {
-			hasAppCode = true
+			appPaths = append(appPaths, p)
 		}
 	}
-	return hasAppCode, hasConfig
+	return appPaths, configPaths
 }
 
 // porcelainPath extracts the path from a `git status --porcelain` v1 line.
