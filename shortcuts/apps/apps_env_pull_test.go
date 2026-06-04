@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/larksuite/cli/errs"
 	"github.com/larksuite/cli/internal/httpmock"
@@ -28,6 +29,10 @@ func assertValidationError(t *testing.T, err error, wantSubstr string) {
 	if wantSubstr != "" && !strings.Contains(err.Error(), wantSubstr) {
 		t.Fatalf("expected validation message containing %q, got %v", wantSubstr, err)
 	}
+}
+
+func expectedEnvPullExpiryText(ts int64) string {
+	return time.Unix(ts, 0).Local().Format("2006-01-02 15:04:05 MST")
 }
 
 func TestResolveEnvPullTarget_DefaultProjectPathUsesCWD(t *testing.T) {
@@ -300,6 +305,7 @@ func TestAppsEnvPull_PrettyOutput_WithDatabaseLine(t *testing.T) {
 	}
 
 	got := stdout.String()
+	wantExpiry := expectedEnvPullExpiryText(1780389006)
 	if !strings.Contains(got, "App detected: app_x") {
 		t.Fatalf("missing app summary: %q", got)
 	}
@@ -309,7 +315,7 @@ func TestAppsEnvPull_PrettyOutput_WithDatabaseLine(t *testing.T) {
 	if !strings.Contains(got, "✓ Local environment written to "+filepath.Join(projectDir, ".env.local")) {
 		t.Fatalf("missing env file write line in pretty output: %q", got)
 	}
-	if !strings.Contains(got, "\n\nDATABASE_URL is valid until 2026-06-02 16:30:06 CST.\n") {
+	if !strings.Contains(got, "\n\nDATABASE_URL is valid until "+wantExpiry+".\n") {
 		t.Fatalf("missing blank-line separated expiry block: %q", got)
 	}
 	if !strings.Contains(got, "Run `lark-cli apps +env-pull --app-id <app_id>` again to refresh it.") {
@@ -582,10 +588,11 @@ func TestAppsEnvPull_ExecuteUsesArrayEnvVars(t *testing.T) {
 		t.Fatalf("expected SUDA_DATABASE_URL array entry to be written, got %q", gotFile)
 	}
 	gotOut := stdout.String()
+	wantExpiry := expectedEnvPullExpiryText(1780389006)
 	if !strings.Contains(gotOut, "Development database detected") {
 		t.Fatalf("expected database line in pretty output, got %q", gotOut)
 	}
-	if !strings.Contains(gotOut, "DATABASE_URL is valid until 2026-06-02 16:30:06 CST.") {
+	if !strings.Contains(gotOut, "DATABASE_URL is valid until "+wantExpiry+".") {
 		t.Fatalf("expected expiry line in pretty output, got %q", gotOut)
 	}
 	if strings.Contains(gotOut, "expiresAt") {
@@ -732,7 +739,8 @@ func TestAppsEnvPull_DatabaseExtrasWithoutExpiresAtDoesNotFail(t *testing.T) {
 
 func TestWriteEnvPullPretty(t *testing.T) {
 	var buf bytes.Buffer
-	writeEnvPullPretty(&buf, "app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtText: "2026-06-02 16:30:06 CST"}, nil)
+	expiry := expectedEnvPullExpiryText(1780389006)
+	writeEnvPullPretty(&buf, "app_x", "/repo/.env.local", envPullDatabaseInfo{Detected: true, ExpiresAtText: expiry}, nil)
 	got := buf.String()
 	if !strings.Contains(got, "App detected: app_x") {
 		t.Fatalf("missing app line: %q", got)
@@ -743,7 +751,7 @@ func TestWriteEnvPullPretty(t *testing.T) {
 	if !strings.Contains(got, "✓ Local environment written to /repo/.env.local") {
 		t.Fatalf("missing env file write line: %q", got)
 	}
-	if !strings.Contains(got, "\n\nDATABASE_URL is valid until 2026-06-02 16:30:06 CST.\n") {
+	if !strings.Contains(got, "\n\nDATABASE_URL is valid until "+expiry+".\n") {
 		t.Fatalf("missing blank-line separated expiry block: %q", got)
 	}
 	if strings.Contains(got, "Skipped") {
