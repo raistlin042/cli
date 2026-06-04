@@ -803,7 +803,7 @@ func TestAppsInit_EmptyRepo_TwoCommits(t *testing.T) {
 		t.Fatalf("unexpected: %v", err)
 	}
 	msgs := commitMessages(f.calls)
-	want := []string{"chore: initialize app project code", "chore: initialize Miaoda app config"}
+	want := []string{"chore: initialize app project code", "chore: initialize miaoda app config"}
 	if len(msgs) != 2 || msgs[0] != want[0] || msgs[1] != want[1] {
 		t.Fatalf("commit messages = %v, want %v", msgs, want)
 	}
@@ -864,7 +864,7 @@ func TestAppsInit_EmptyRepo_ConfigOnly_SingleCommit(t *testing.T) {
 		t.Fatalf("unexpected: %v", err)
 	}
 	msgs := commitMessages(f.calls)
-	if len(msgs) != 1 || msgs[0] != "chore: initialize Miaoda app config" {
+	if len(msgs) != 1 || msgs[0] != "chore: initialize miaoda app config" {
 		t.Fatalf("commit messages = %v, want one config commit", msgs)
 	}
 }
@@ -884,7 +884,7 @@ func TestAppsInit_NonEmpty_SingleInitCommit(t *testing.T) {
 		t.Fatalf("unexpected: %v", err)
 	}
 	msgs := commitMessages(f.calls)
-	if len(msgs) != 1 || msgs[0] != "chore: initialize Miaoda app repository" {
+	if len(msgs) != 1 || msgs[0] != "chore: initialize miaoda app repository" {
 		t.Fatalf("commit messages = %v, want one upgrade commit", msgs)
 	}
 	for _, c := range f.calls {
@@ -976,5 +976,75 @@ func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestCommitAndPushIfDirty_RealGit_NonEmptyUpgrade pins down that the non-empty
+// (upgrade) path is unaffected by the commit-split / exact-path changes: it must
+// stay a SINGLE commit using `git add -A -- .`, which silently skips a gitignored
+// .agent (no ignored-path error), with the upgrade subject.
+func TestCommitAndPushIfDirty_RealGit_NonEmptyUpgrade(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	remote := t.TempDir()
+	gitMust(t, remote, "init", "--bare", "-q", "--initial-branch", defaultInitBranch)
+
+	dir := t.TempDir()
+	gitMust(t, dir, "init", "-q", "--initial-branch", defaultInitBranch)
+	gitMust(t, dir, "config", "user.email", "t@example.com")
+	gitMust(t, dir, "config", "user.name", "Test")
+	gitMust(t, dir, "remote", "add", "origin", remote)
+
+	// Existing (non-empty) repo: a committed baseline with .agent already ignored.
+	mustWrite(t, filepath.Join(dir, ".gitignore"), ".agent\n")
+	if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, "src", "old.ts"), "export const old = 0\n")
+	gitMust(t, dir, "add", "-A")
+	gitMust(t, dir, "commit", "-q", "-m", "baseline")
+	baseline := strings.TrimSpace(gitMust(t, dir, "rev-parse", "HEAD"))
+
+	// Simulate `app upgrade`: a modified app file, a patched .spark config, and an
+	// IGNORED .agent dir produced by `skills sync`.
+	mustWrite(t, filepath.Join(dir, "src", "old.ts"), "export const old = 1\n")
+	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".spark", "meta.json"), `{"app_id":"app_x"}`)
+	if err := os.MkdirAll(filepath.Join(dir, ".agent"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, filepath.Join(dir, ".agent", "skill.md"), "ignored\n")
+
+	orig := initRunner
+	initRunner = execCommandRunner{}
+	t.Cleanup(func() { initRunner = orig })
+
+	committed, pushed, err := commitAndPushIfDirty(context.Background(), dir, scaffoldKindUpgrade)
+	if err != nil {
+		t.Fatalf("commitAndPushIfDirty returned error: %v", err)
+	}
+	if !committed || !pushed {
+		t.Fatalf("committed=%v pushed=%v, want true/true", committed, pushed)
+	}
+
+	// Exactly ONE commit added, with the upgrade subject (not a split).
+	added := strings.TrimSpace(gitMust(t, dir, "rev-list", "--count", baseline+"..HEAD"))
+	if added != "1" {
+		t.Fatalf("upgrade path added %s commits, want exactly 1 (no split)", added)
+	}
+	if subj := strings.TrimSpace(gitMust(t, dir, "log", "--format=%s", "-1")); subj != commitMsgUpgrade {
+		t.Errorf("upgrade commit subject = %q, want %q", subj, commitMsgUpgrade)
+	}
+
+	// .agent stays ignored; the real changes are committed.
+	tracked := gitMust(t, dir, "ls-files")
+	if strings.Contains(tracked, ".agent") {
+		t.Errorf("ignored .agent must not be committed; tracked=%q", tracked)
+	}
+	if !strings.Contains(tracked, ".spark/meta.json") {
+		t.Errorf(".spark/meta.json should be committed; tracked=%q", tracked)
 	}
 }
