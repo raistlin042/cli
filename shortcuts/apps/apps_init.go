@@ -27,8 +27,8 @@ const defaultInitBranch = "sprint/default"
 // the non-empty (`app upgrade`) path stays a single commit.
 const (
 	commitMsgAppCode   = "chore: initialize app project code"
-	commitMsgAppConfig = "chore: initialize Miaoda app config"
-	commitMsgUpgrade   = "chore: initialize Miaoda app repository"
+	commitMsgAppConfig = "chore: initialize miaoda app config"
+	commitMsgUpgrade   = "chore: initialize miaoda app repository"
 )
 
 // scaffold kinds returned by runScaffold and consumed by commitAndPushIfDirty.
