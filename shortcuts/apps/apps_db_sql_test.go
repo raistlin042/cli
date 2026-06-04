@@ -693,3 +693,56 @@ func TestNormalizeLegacyStatement_Cases(t *testing.T) {
 		}
 	})
 }
+
+func TestCellString_MarshalFallback(t *testing.T) {
+	// complex128 is not switch-handled and json.Marshal rejects it →
+	// falls back to fmt.Sprintf("%v", v), which is deterministic for complex.
+	if got := cellString(complex(1, 2)); got != "(1+2i)" {
+		t.Errorf("cellString(complex)=%q want (1+2i)", got)
+	}
+}
+
+func TestRenderSingleStatementPretty_Branches(t *testing.T) {
+	cases := []struct {
+		name   string
+		stmt   map[string]interface{}
+		substr string
+	}{
+		{"select empty", map[string]interface{}{"sql_type": "SELECT", "data": "[]"}, "(0 rows)"},
+		{"error", map[string]interface{}{"sql_type": "ERROR", "data": `{"message":"boom"}`}, "✗ boom"},
+		{"dml insert", map[string]interface{}{"sql_type": "INSERT", "affected_rows": float64(3)}, "✓ 3 rows inserted"},
+		{"legacy ok", map[string]interface{}{"sql_type": "OK"}, "✓ ok"},
+		{"ddl default", map[string]interface{}{"sql_type": "CREATE_TABLE"}, "✓ DDL executed"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var b strings.Builder
+			renderSingleStatementPretty(&b, c.stmt)
+			if !strings.Contains(b.String(), c.substr) {
+				t.Errorf("output %q does not contain %q", b.String(), c.substr)
+			}
+		})
+	}
+}
+
+func TestRenderSelectRowsAsTable_Branches(t *testing.T) {
+	cases := []struct {
+		name   string
+		data   string
+		substr string
+	}{
+		{"empty string", "", "(0 rows)"},
+		{"empty array", "[]", "(0 rows)"},
+		{"malformed fallback", "{bad", "{bad"},
+		{"rows", `[{"id":1}]`, "id"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var b strings.Builder
+			renderSelectRowsAsTable(&b, c.data)
+			if !strings.Contains(b.String(), c.substr) {
+				t.Errorf("output %q does not contain %q", b.String(), c.substr)
+			}
+		})
+	}
+}

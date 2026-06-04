@@ -983,6 +983,12 @@ func TestExtractEnvPullDatabaseExpiry_Cases(t *testing.T) {
 			t.Errorf("got %q,%q want empty", raw, text)
 		}
 	})
+	t.Run("non-map element skipped", func(t *testing.T) {
+		raw, text := extractEnvPullDatabaseExpiry([]interface{}{"not-a-map"})
+		if raw != "" || text != "" {
+			t.Errorf("got %q,%q want empty", raw, text)
+		}
+	})
 	t.Run("string timestamp", func(t *testing.T) {
 		ts := int64(1700000000)
 		raw, text := extractEnvPullDatabaseExpiry([]interface{}{
