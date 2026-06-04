@@ -1054,3 +1054,28 @@ func TestExtractEnvPullVars_EdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveEnvPullTarget_RejectsControlChars(t *testing.T) {
+	if _, _, err := resolveEnvPullTarget("bad\x01path"); err == nil {
+		t.Error("control char in --project-path must be rejected")
+	}
+}
+
+func TestReadEnvPullFile_ReadErrorOnDirectory(t *testing.T) {
+	// Reading a directory as a file is a non-ENOENT error path.
+	if _, err := readEnvPullFile(t.TempDir()); err == nil {
+		t.Error("reading a directory as env file must surface an error")
+	}
+}
+
+func TestEnsureEnvPullParentDir_MkdirError(t *testing.T) {
+	// A file occupying the would-be parent component makes MkdirAll fail.
+	base := t.TempDir()
+	blocker := filepath.Join(base, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureEnvPullParentDir(filepath.Join(blocker, "child", ".env.local")); err == nil {
+		t.Error("MkdirAll over a file component must surface an error")
+	}
+}
