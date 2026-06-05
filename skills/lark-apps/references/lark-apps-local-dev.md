@@ -19,7 +19,7 @@
 lark-cli apps +create --name "审批系统" --app-type full_stack \
   --description "支持登录、提交申请、多级审批、状态查询"
 
-# 初始化本地仓库；agent 先给目录选项让用户选，再把选择传给 --dir
+# 初始化本地仓库（--dir 目标目录由用户选定，见下方「领域规则」，勿照抄此处示例值）
 lark-cli apps +init --app-id app_xxx --dir ./approval-app
 
 # 进入仓库后按项目脚手架启动
@@ -50,6 +50,7 @@ lark-cli apps +publish --app-id app_xxx
 
 - 代码读写走原生 `git`；CLI 负责凭证、初始化、发布和数据库调试。不存在 `apps +pull` / `apps +push` / `apps code +read` 这类代码读写 shortcut，不要臆造。
 - `+init` 会编排 `+git-credential-init`、`git clone`、切到 `sprint/default`、运行脚手架，并在有变更时提交/推送。
+- `+init --dir` 的目标目录由用户决定：调用前先给出目录建议/选项让用户选，拿到选择再传 `--dir`。
 - `sprint/default` 是工作分支；`main` 是发布态快照，由 `+publish` 成功后服务端 fast-forward 推进；服务端护栏禁直推 `main`、拒 force-push、要求 `sprint/default` fast-forward。
 - 已拉到本地后，pull/push/diff/log 都用原生 git；云端 `sprint/default` 比本地新时，先 `git pull --rebase origin sprint/default`，解决冲突后再 push 和 publish。
 - 环境变量由脚手架在本地启动时处理；需要手动刷新时用 `+env-pull`。
