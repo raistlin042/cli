@@ -21,9 +21,12 @@ var AppsSessionRead = common.Shortcut{
 	Command:     "+session-read",
 	Description: "Read a session's current status, queued turns, and latest turn",
 	Risk:        "read",
-	Scopes:      []string{"spark:app:read"},
-	AuthTypes:   []string{"user"},
-	HasFormat:   true,
+	Tips: []string{
+		"Example: lark-cli apps +session-read --app-id <app_id> --session-id <session_id>",
+	},
+	Scopes:    []string{"spark:app:read"},
+	AuthTypes: []string{"user"},
+	HasFormat: true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "app ID", Required: true},
 		{Name: "session-id", Desc: "session ID", Required: true},

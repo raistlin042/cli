@@ -20,9 +20,13 @@ var AppsPublish = common.Shortcut{
 	Command:     "+publish",
 	Description: "Create a release for a Miaoda app (returns release_id for status polling)",
 	Risk:        "write",
-	Scopes:      []string{"spark:app:publish"},
-	AuthTypes:   []string{"user"},
-	HasFormat:   true,
+	Tips: []string{
+		"Example: lark-cli apps +publish --app-id <app_id>",
+		"Example: lark-cli apps +publish --app-id <app_id> --branch sprint/default --dry-run",
+	},
+	Scopes:    []string{"spark:app:publish"},
+	AuthTypes: []string{"user"},
+	HasFormat: true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "Miaoda app ID", Required: true},
 		{Name: "branch", Desc: "release branch (server uses default if omitted)"},

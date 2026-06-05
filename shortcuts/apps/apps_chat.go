@@ -22,9 +22,12 @@ var AppsChat = common.Shortcut{
 	Command:     "+chat",
 	Description: "Send a message to a session to start/continue a conversation",
 	Risk:        "write",
-	Scopes:      []string{"spark:app:write"},
-	AuthTypes:   []string{"user"},
-	HasFormat:   true,
+	Tips: []string{
+		`Example: lark-cli apps +chat --app-id <app_id> --session-id <session_id> --message "做一个待办清单页面"`,
+	},
+	Scopes:    []string{"spark:app:write"},
+	AuthTypes: []string{"user"},
+	HasFormat: true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "app ID", Required: true},
 		{Name: "session-id", Desc: "session ID", Required: true},
