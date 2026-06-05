@@ -264,7 +264,7 @@ func TestRunScaffold_EmptyRepo(t *testing.T) {
 				t.Fatalf("ls=%q kind=%q err=%v, want init", ls, kind, err)
 			}
 			c := findCall(f.calls, "npx", "-y")
-			if c == nil || !containsAll(c, "-y", "--prefer-online", miaodaCLIPkg, "app", "init", "--template", "nestjs-react-fullstack", "--app-id", "app_x") {
+			if c == nil || !containsAll(c, "-y", "--prefer-online", miaodaCLIPkg, "app", "init", "--template", "nestjs-react-fullstack", "--app-id", "app_x", "--local") {
 				t.Errorf("app init not invoked with expected args: %v", f.calls)
 			}
 		})
@@ -279,11 +279,11 @@ func TestRunScaffold_NonEmpty_SyncsWhenNoSteering(t *testing.T) {
 	if err != nil || kind != "upgrade" {
 		t.Fatalf("kind=%q err=%v, want upgrade", kind, err)
 	}
-	if c := findCallArg(f.calls, "npx", "app", "sync"); c == nil || !containsAll(c, "-y", "--prefer-online") {
-		t.Error("app sync not invoked with --prefer-online")
+	if c := findCallArg(f.calls, "npx", "app", "sync"); c == nil || !containsAll(c, "-y", "--prefer-online", "--local") {
+		t.Error("app sync not invoked with --prefer-online and --local")
 	}
-	if c := findCallArg(f.calls, "npx", "skills", "sync"); c == nil || !containsAll(c, "-y", "--prefer-online") {
-		t.Error("skills sync should run with --prefer-online when steering dir absent")
+	if c := findCallArg(f.calls, "npx", "skills", "sync"); c == nil || !containsAll(c, "-y", "--prefer-online", "--local") {
+		t.Error("skills sync should run with --prefer-online and --local when steering dir absent")
 	}
 }
 
@@ -340,8 +340,8 @@ func TestAppsInit_EmptyRepo_EndToEnd(t *testing.T) {
 	c := findCall(f.calls, "npx", "-y")
 	if c == nil {
 		t.Error("npx scaffold not invoked")
-	} else if !containsAll(c, "-y", "--prefer-online", miaodaCLIPkg, "app", "init", "--template", defaultTemplate, "--app-id", "app_x") {
-		t.Errorf("app init missing expected --template fallback args: %v", c)
+	} else if !containsAll(c, "-y", "--prefer-online", miaodaCLIPkg, "app", "init", "--template", defaultTemplate, "--app-id", "app_x", "--local") {
+		t.Errorf("app init missing expected --template fallback / --local args: %v", c)
 	}
 }
 
@@ -722,8 +722,12 @@ func TestAppsInit_Req1_Wording(t *testing.T) {
 	if strings.Contains(strings.ToLower(desc), "scaffold") {
 		t.Errorf("dry-run description still mentions scaffold: %q", desc)
 	}
-	if _, ok := data["scaffold"]; !ok {
+	scaffold, ok := data["scaffold"].(string)
+	if !ok {
 		t.Error("dry-run must keep machine-contract key `scaffold`")
+	} else if !strings.Contains(scaffold, "app init") || !strings.Contains(scaffold, "app sync --local") ||
+		!strings.Contains(scaffold, "--app-id app_x --local") {
+		t.Errorf("dry-run scaffold string must show --local on both app init and app sync: %q", scaffold)
 	}
 
 	f := &fakeCommandRunner{results: map[string]fakeCallResult{
