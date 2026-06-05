@@ -35,6 +35,17 @@ lark-cli apps +publish --app-id app_xxx
 
 `+init` 是推荐便捷入口；想逐步手动控制时，先 `+git-credential-init` 拿 `repository_url`，再用原生 `git clone` / `git checkout sprint/default`。
 
+## 改完代码后部署上线
+
+已拉到本地、改完代码，用户说"推上去""部署""上线""发布到云端"时，按此序列：
+
+1. `git status` 确认改动已提交，工作区干净。
+2. `git push origin sprint/default` 把工作分支推到云端（遇非 fast-forward：先 `git pull --rebase origin sprint/default` 解决冲突再推，绝不 force-push）。
+3. `lark-cli apps +publish --app-id <app_id>` 发起部署上线，记下返回的 `release_id`。
+4. `lark-cli apps +publish-status --app-id <app_id> --release-id <release_id>` 轮询：`publishing` 继续轮询、`finished` 成功、`failed` 接 `+publish-error-log`。
+
+`+publish` 部署上线属高影响动作，按 SKILL.md「失败与高影响动作」先征得用户同意再发布。
+
 ## 领域规则
 
 - 代码读写走原生 `git`；CLI 负责凭证、初始化、发布和数据库调试。不存在 `apps +pull` / `apps +push` / `apps code +read` 这类代码读写 shortcut，不要臆造。
