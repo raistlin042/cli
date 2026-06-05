@@ -52,7 +52,7 @@ var AppsPublish = common.Shortcut{
 		path := fmt.Sprintf(publishCreatePath, validate.EncodePathSegment(appID))
 		data, err := rctx.CallAPI("POST", path, nil, buildPublishBody(branch))
 		if err != nil {
-			return err
+			return withAppsHint(err, "if the push was rejected (non-fast-forward), sync first with `git pull --rebase origin sprint/default` then retry; inspect the failure via `lark-cli apps +publish-status --app-id "+appID+" --release-id <release_id>` or `lark-cli apps +publish-error-log --app-id "+appID+" --release-id <release_id>`")
 		}
 		out := map[string]interface{}{
 			"release_id": common.GetString(data, "release_id"),

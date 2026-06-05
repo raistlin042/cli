@@ -53,7 +53,7 @@ var AppsPublishErrorLog = common.Shortcut{
 		path := fmt.Sprintf(publishErrorLogPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
 		data, err := rctx.CallAPI("GET", path, nil, nil)
 		if err != nil {
-			return err
+			return withAppsHint(err, "if the release_id is unknown or invalid, list this app's releases with `lark-cli apps +publish-history --app-id "+appID+"`")
 		}
 		out := shapeErrorLog(data)
 		rctx.OutFormat(out, nil, func(w io.Writer) {
