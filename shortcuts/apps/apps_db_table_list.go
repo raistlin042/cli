@@ -27,6 +27,7 @@ var AppsDBTableList = common.Shortcut{
 	Risk:        "read",
 	Tips: []string{
 		"Example: lark-cli apps +db-table-list --app-id <app_id>",
+		"Tip: filter fields with --jq, e.g. -q '.items[].name'",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},

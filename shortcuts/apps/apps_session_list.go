@@ -20,6 +20,7 @@ var AppsSessionList = common.Shortcut{
 	Risk:        "read",
 	Tips: []string{
 		"Example: lark-cli apps +session-list --app-id <app_id>",
+		"Tip: filter fields with --jq, e.g. -q '.sessions[].session_id'",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},

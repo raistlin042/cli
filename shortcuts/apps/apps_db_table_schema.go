@@ -28,6 +28,7 @@ var AppsDBTableSchema = common.Shortcut{
 	Risk:        "read",
 	Tips: []string{
 		"Example: lark-cli apps +db-table-schema --app-id <app_id> --table <table>",
+		"Tip: filter fields with --jq (json format), e.g. -q '.columns[].name'",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},

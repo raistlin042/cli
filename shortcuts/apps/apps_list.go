@@ -27,6 +27,7 @@ var AppsList = common.Shortcut{
 	Tips: []string{
 		"Example: lark-cli apps +list",
 		"Example: lark-cli apps +list --keyword <keyword>",
+		"Tip: filter fields with --jq, e.g. -q '.items[].app_id'",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},
