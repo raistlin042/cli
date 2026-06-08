@@ -67,7 +67,7 @@ var AppsAccessScopeSet = common.Shortcut{
 		}
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		path := fmt.Sprintf("%s/apps/%s/access-scope", apiBasePath, validate.EncodePathSegment(appID))
-		data, err := rctx.CallAPI("PUT", path, nil, body)
+		data, err := rctx.CallAPITyped("PUT", path, nil, body)
 		if err != nil {
 			return err
 		}

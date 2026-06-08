@@ -53,7 +53,7 @@ var AppsDBTableList = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		data, err := rctx.CallAPI("GET", appTablesPath(appID), buildDBTableListParams(rctx), nil)
+		data, err := rctx.CallAPITyped("GET", appTablesPath(appID), buildDBTableListParams(rctx), nil)
 		if err != nil {
 			return err
 		}

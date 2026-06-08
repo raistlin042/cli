@@ -45,7 +45,7 @@ var AppsAccessScopeGet = common.Shortcut{
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		path := fmt.Sprintf("%s/apps/%s/access-scope", apiBasePath, validate.EncodePathSegment(appID))
-		data, err := rctx.CallAPI("GET", path, nil, nil)
+		data, err := rctx.CallAPITyped("GET", path, nil, nil)
 		if err != nil {
 			return err
 		}

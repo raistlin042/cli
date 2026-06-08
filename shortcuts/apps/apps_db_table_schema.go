@@ -59,7 +59,7 @@ var AppsDBTableSchema = common.Shortcut{
 			return err
 		}
 		path := appTablePath(appID, strings.TrimSpace(rctx.Str("table")))
-		data, err := rctx.CallAPI("GET", path, buildDBTableSchemaParams(rctx), nil)
+		data, err := rctx.CallAPITyped("GET", path, buildDBTableSchemaParams(rctx), nil)
 		if err != nil {
 			return err
 		}

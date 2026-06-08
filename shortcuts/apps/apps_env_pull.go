@@ -81,7 +81,7 @@ var AppsEnvPull = common.Shortcut{
 		}
 
 		path := fmt.Sprintf("%s/apps/%s/env_vars", apiBasePath, validate.EncodePathSegment(appID))
-		data, err := rctx.CallAPI("POST", path, nil, nil)
+		data, err := rctx.CallAPITyped("POST", path, nil, nil)
 		if err != nil {
 			return err
 		}

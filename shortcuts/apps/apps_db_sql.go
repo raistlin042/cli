@@ -75,7 +75,7 @@ var AppsDBSQL = common.Shortcut{
 		if err != nil {
 			return err
 		}
-		raw, err := rctx.CallAPI("POST", appSQLPath(appID),
+		raw, err := rctx.CallAPITyped("POST", appSQLPath(appID),
 			buildDBSQLParams(rctx),
 			buildDBSQLBody(rctx))
 		if err != nil {

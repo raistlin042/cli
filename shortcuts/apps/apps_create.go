@@ -52,7 +52,7 @@ var AppsCreate = common.Shortcut{
 			Body(buildAppsCreateBody(rctx))
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
-		data, err := rctx.CallAPI("POST", apiBasePath+"/apps", nil, buildAppsCreateBody(rctx))
+		data, err := rctx.CallAPITyped("POST", apiBasePath+"/apps", nil, buildAppsCreateBody(rctx))
 		if err != nil {
 			return err
 		}

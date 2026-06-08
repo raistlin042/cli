@@ -55,7 +55,7 @@ var AppsPublishHistory = common.Shortcut{
 		limit := rctx.Int("limit")
 		pageToken := strings.TrimSpace(rctx.Str("page-token"))
 		path := fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))
-		data, err := rctx.CallAPI("GET", path, buildHistoryQuery(status, limit, pageToken), nil)
+		data, err := rctx.CallAPITyped("GET", path, buildHistoryQuery(status, limit, pageToken), nil)
 		if err != nil {
 			return err
 		}
