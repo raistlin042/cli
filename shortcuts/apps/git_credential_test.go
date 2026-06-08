@@ -847,6 +847,46 @@ func TestParseIssueCredentialDataErrors(t *testing.T) {
 	}
 }
 
+// TestParseIssueCredentialData503IsRetryableWithHint verifies that a 5xx Git
+// credential issuance failure is flagged retryable and carries the developer-access hint.
+func TestParseIssueCredentialData503IsRetryableWithHint(t *testing.T) {
+	header := http.Header{"X-Tt-Logid": []string{"log_x"}}
+	_, err := parseIssueCredentialData(&larkcore.ApiResp{StatusCode: http.StatusServiceUnavailable, RawBody: []byte(`{"msg":"upstream busy"}`), Header: header}, nil)
+	if err == nil {
+		t.Fatal("expected 503 error, got nil")
+	}
+	p, ok := errs.ProblemOf(err)
+	if !ok {
+		t.Fatalf("expected typed errs.Problem, got %T: %v", err, err)
+	}
+	if !p.Retryable {
+		t.Fatalf("503 should be retryable, got Retryable=false")
+	}
+	if !strings.Contains(p.Hint, "developer access") {
+		t.Fatalf("hint missing 'developer access': %q", p.Hint)
+	}
+}
+
+// TestParseIssueCredentialDataBusinessCodeHasHintNotRetryable verifies that a
+// non-zero business code (no HTTP status) carries the hint but is not retryable.
+func TestParseIssueCredentialDataBusinessCodeHasHintNotRetryable(t *testing.T) {
+	header := http.Header{"X-Tt-Logid": []string{"log_x"}}
+	_, err := parseIssueCredentialData(&larkcore.ApiResp{StatusCode: http.StatusOK, RawBody: []byte(`{"code":999,"msg":"no developer access"}`), Header: header}, nil)
+	if err == nil {
+		t.Fatal("expected business-code error, got nil")
+	}
+	p, ok := errs.ProblemOf(err)
+	if !ok {
+		t.Fatalf("expected typed errs.Problem, got %T: %v", err, err)
+	}
+	if p.Retryable {
+		t.Fatalf("business code != 0 must not be retryable, got Retryable=true")
+	}
+	if !strings.Contains(p.Hint, "developer access") {
+		t.Fatalf("hint missing 'developer access': %q", p.Hint)
+	}
+}
+
 type errorReader struct{}
 
 func (errorReader) Read(p []byte) (int, error) {
