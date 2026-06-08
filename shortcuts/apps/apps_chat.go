@@ -24,6 +24,7 @@ var AppsChat = common.Shortcut{
 	Risk:        "write",
 	Tips: []string{
 		`Example: lark-cli apps +chat --app-id <app_id> --session-id <session_id> --message "做一个待办清单页面"`,
+		`Example: lark-cli apps +chat --app-id <app_id> --session-id <session_id> --message "把首页标题改为 我的待办"`,
 	},
 	Scopes:    []string{"spark:app:write"},
 	AuthTypes: []string{"user"},
