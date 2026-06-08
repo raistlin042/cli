@@ -34,10 +34,6 @@ lark-cli apps +session-list --app-id app_xxx
 | 用户说“新开一段/换个话题” | `+session-create` 后再 `+chat` |
 | 用户说“接着刚才” | 复用上下文 session_id；拿不到就 `+session-list` 让用户选 |
 
-## 生成完成 ≠ 拿到可分享 URL
-
-`+session-read` 返回的预览 URL 是开发态预览，**不是** `online_url`，也不会返回 `online_url`。要给用户公网可分享链接，需走发布：`+publish` → `+publish-status` 为 `finished` → `lark-cli apps +list --keyword <应用名>` 读 `online_url`。详见 [`lark-apps-publish.md`](lark-apps-publish.md)。发布属高影响动作，按 SKILL.md「预授权判定」：prompt 含授权词直发，无授权词先确认。
-
 ## 轮询规则
 
 - `+chat` 异步，只返回 `next_poll_after_ms`，不返回 `turn_id`。
@@ -46,28 +42,11 @@ lark-cli apps +session-list --app-id app_xxx
 - `is_streaming=true`、`building` / `running` / `streaming` 表示仍在生成，继续轮询，不傻等也不提前放弃。
 - `is_streaming=false` 且 `latest_turn.status=completed` 表示本轮完成，可发下一条。
 - `failed` / `cancelled` 时转述错误字段或 hint，询问是否重试。
-- 预览 URL 只来自 `+session-read` 返回的明确字段；为空时不要编造链接。
 - 要中止正在运行的一轮，从 `+session-read` 的 `latest_turn.turnID` 取值，再调用：
 
 ```bash
 lark-cli apps +session-stop --app-id app_xxx --session-id sess_xxx --turn-id turn_xxx
 ```
-
-### 后台轮询范式（不要死等、不要被拦）
-
-由 agent 驱动轮询；用后台命令而非阻塞 sleep：
-
-```bash
-# run_in_background 起后台轮询，直到本轮生成结束
-until lark-cli apps +session-read --app-id app_xxx --session-id sess_xxx --format json \
-  | jq -e '.data.is_streaming == false and .data.latest_turn.status == "completed"' >/dev/null; do
-  :
-done
-```
-
-- `sleep N && cmd` 会被 harness 拦截，不要用；用 `run_in_background` + 上面的 until 轮询。
-- **弃用 `ScheduleWakeup` 被动等**——它会让会话挂起、给用户"卡死"感。
-- **多轮迭代发布前置**：连续发多条迭代时，`+publish` 前必须 `is_streaming=false` ∧ `queued_count=0` ∧ `latest_turn.status=completed` 三者同时满足（避免队列未清空就发布）。
 
 ## 字段注意
 

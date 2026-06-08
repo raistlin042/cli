@@ -4,7 +4,6 @@
 
 把妙搭应用的启动期环境变量拉取到本地项目根的 `.env.local`。**通常不需要手动跑**——脚手架的 `npm run dev` 在起本地开发时会**自动后台拉取**（非阻塞）。本命令是给以下兜底场景用的：
 
-- **首启兜底**：首次 `+init` 后起 dev server，若后端起不来 / 报缺 DB 凭据（`DATABASE_URL` 等）→ 先 `+env-pull` 再重试 `npm run dev`。
 - 开发期间
 - `.env.local` 被改坏 / 删除，想重新同步
 - 不通过 `npm run dev` 启动（如直接跑 `node` / IDE debug）

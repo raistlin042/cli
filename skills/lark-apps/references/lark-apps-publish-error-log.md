@@ -23,5 +23,4 @@ lark-cli apps +publish-error-log --app-id app_xxx --release-id release_yyy
 
 - 成功读取 `data.status` 和 `data.error_logs[]`。
 - 每条日志关注 `step` 与 `error_log`；向用户转述关键失败步骤和可行动修复，不要整段倾倒。
-- 判别 infra transient（`EAI_AGAIN`/`ETIMEDOUT`/npm 源不可达）vs app code error：前者按 [`lark-apps-publish.md`](lark-apps-publish.md) 重试上限 2 次后给诚实回执，后者让用户改代码。
 - `error_logs` 为空但发布失败时，说明没有步骤级日志；回到发布状态和配置排查。
