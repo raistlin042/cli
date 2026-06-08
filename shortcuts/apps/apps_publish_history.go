@@ -22,7 +22,7 @@ var AppsPublishHistory = common.Shortcut{
 	Risk:        "read",
 	Tips: []string{
 		"Example: lark-cli apps +publish-history --app-id <app_id>",
-		"Tip: filter fields with --jq, e.g. -q '.releases[].release_id'",
+		"Tip: filter fields with --jq, e.g. -q '.data.releases[].release_id'",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},
