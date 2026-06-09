@@ -45,7 +45,7 @@ lark-cli apps +publish --app-id app_xxx
 1. `git status` 看本次改动；`git add <本次相关文件>` 暂存后 `git commit` 提交。只提交本次任务相关的改动即可，无关的零散文件不必强求清空——发布门禁是「**本次相关改动已提交并推送**」，不是「工作区绝对干净」。
 2. `git push origin sprint/default` 把工作分支推到云端（遇非 fast-forward：先 `git pull --rebase origin sprint/default` 解决冲突再推，绝不 force-push）。
 3. `lark-cli apps +publish --app-id <app_id>` 发起部署上线，记下返回的 `release_id`。
-4. `lark-cli apps +publish-status --app-id <app_id> --release-id <release_id>` 轮询：`publishing` 继续轮询；`finished` 成功后，`lark-cli apps +list --keyword <应用名>` 读 `online_url` 返回给用户（这才是可分享链接）；`failed` 接 `+publish-error-log`。
+4. `lark-cli apps +publish-status --app-id <app_id> --release-id <release_id>` 轮询：`publishing` 继续轮询；`finished` 成功后，`lark-cli apps +list --keyword <应用名>` 读 `online_url` 返回给用户（这是本轮发布完成后的可分享链接）；`failed` 接 `+publish-error-log`。
 
 ## 领域规则
 
@@ -58,6 +58,7 @@ lark-cli apps +publish --app-id app_xxx
 - DB 调试用 `+db-table-list` / `+db-table-schema` / `+db-sql`；不要裸连数据库或自行拼连接串。
 - DB 分 `dev` / `online`；日常调试优先 `--env dev`。dev 的库结构变更要上线时，仍按应用发布链路走 `+publish`，不要另造“数据库发布”步骤。
 - 存量单库应用需要 dev/online 多环境时，用 `+db-dev-init`。这是不可逆 high-risk 操作。
+- 只从 `+list` 看到 `is_published=true`，不能证明本地刚推送的代码已经部署；必须有本轮 `+publish-status finished`。
 
 ## 存量应用入口
 
