@@ -26,12 +26,10 @@ cd ./approval-app
 npm install
 npm run dev
 
-# 开发完成后：先提交本次改动，推工作分支，再发布。
-# 注意：+publish 部署的是远端 sprint/default 上已 push 的代码，不是本地工作区；
-# 没 commit + push 的改动不会进入这次发布。
-git status                       # 看本次改动
-git add <本次相关改动的文件>      # 只 add 本次相关改动，不要 git add -A 误带无关文件
-git commit -m "feat: ..."        # 提交本次改动
+# 开发完成后：提交本次改动 -> git push origin sprint/default -> +publish。
+# +publish 部署的是远端 sprint/default 上已 push 的代码，不是本地工作区——没 commit + push 的改动不会进入发布。
+git add <本次开发的文件>          # 提交粒度见下方「改完代码后部署上线」
+git commit -m "feat: ..."
 git push origin sprint/default
 lark-cli apps +publish --app-id app_xxx
 ```
