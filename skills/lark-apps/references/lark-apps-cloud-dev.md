@@ -48,6 +48,15 @@ lark-cli apps +session-list --app-id app_xxx
 lark-cli apps +session-stop --app-id app_xxx --session-id sess_xxx --turn-id turn_xxx
 ```
 
+## 部署上线
+
+云端会话只在服务端生成/迭代代码，**不会自动部署**。会话本轮 `completed` 后，要上线并拿到可分享链接，必须显式发布：
+
+1. `lark-cli apps +publish --app-id app_xxx` 发起部署上线。云端代码已在服务端 `sprint/default` 上，本地没有仓库，**直接 `+publish` 即可，无需 git commit/push**；记下返回的 `release_id`。
+2. `lark-cli apps +publish-status --app-id app_xxx --release-id <release_id>` 轮询：`publishing` 继续轮询；`finished` 后用 `lark-cli apps +list --keyword <应用名>` 读 `online_url` 返回给用户（这才是可分享链接）；`failed` 接 `+publish-error-log`。
+
+发布细节读 [`lark-apps-publish.md`](lark-apps-publish.md)。
+
 ## 字段注意
 
 顶层字段多为 snake_case，如 `session_id`、`is_active`、`is_streaming`、`next_poll_after_ms`。嵌套 turn 字段使用 camelCase，如 `turnID`。不要把 `turnID` 写成 `turn_id`。

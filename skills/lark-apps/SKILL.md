@@ -25,7 +25,7 @@ metadata:
 2. **开发方式（本地 vs 云端）——只看用户对"谁来写代码"的明确偏好，不从"做什么应用"推断**（与应用复杂度、要不要数据库无关）：
    - 想自己写 / 用本地 IDE·code agent / 要源码拉到本地 / 交研发 → **本地全栈**，读 [`lark-apps-local-dev.md`](references/lark-apps-local-dev.md)。
    - 想让妙搭 AI 在云端生成、对话式做好、自己不碰代码 → **云端会话**，读 [`lark-apps-cloud-dev.md`](references/lark-apps-cloud-dev.md)。
-   - **没表达这种偏好 → 必须先问**（问的是"谁来写"=本地代码开发 vs 云端 AI 生成，**不是**问做成什么形态/网页/小程序）："1. 在本地用代码开发后再部署；2. 让云端 AI 直接生成并自动部署。你想用哪种？" 选定前不擅自选边、不暗示默认，**不得以"需求不模糊 / 我知道要干嘛"为由跳过提问、直接 `+init` / `git clone` / `+session-create` / 首轮 `+chat`**。
+   - **没表达这种偏好 → 必须先问**（问的是"谁来写"=本地代码开发 vs 云端 AI 生成，**不是**问做成什么形态/网页/小程序）："1. 在本地用代码开发后再部署；2. 让云端 AI 直接生成。你想用哪种？" 选定前不擅自选边、不暗示默认，**不得以"需求不模糊 / 我知道要干嘛"为由跳过提问、直接 `+init` / `git clone` / `+session-create` / 首轮 `+chat`**。
 
 ### 修改已有应用：开发方式按信号默认，不必每次问
 
@@ -49,7 +49,7 @@ metadata:
 | 看表、看 schema、跑 SQL、初始化 dev/online 多环境 DB | `+db-table-list`, `+db-table-schema`, `+db-sql`, `+db-dev-init` | 对应 `lark-apps-db-*.md` |
 | **部署/上线全栈应用**（"部署""上线""推上去并部署""发布到云端"）；查发布状态/历史/失败日志 | `+publish`（部署上线动作）, `+publish-status`（轮询发布结果）, `+publish-history`, `+publish-error-log` | 对应 publish reference |
 | 设置或查看运行时可见范围 | `+access-scope-set`, `+access-scope-get` | 对应 access-scope reference |
-| 云端 Agent 生成/迭代应用（开发方式已定为云端后） | `+session-create` -> `+chat` -> `+session-read` | [`lark-apps-cloud-dev.md`](references/lark-apps-cloud-dev.md) |
+| 云端 Agent 生成/迭代应用（开发方式已定为云端后） | `+session-create` -> `+chat` -> `+session-read`（轮询对话状态） -> `+publish` | [`lark-apps-cloud-dev.md`](references/lark-apps-cloud-dev.md) |
 
 ## app_id 获取
 
