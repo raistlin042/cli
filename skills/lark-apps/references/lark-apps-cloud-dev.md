@@ -15,7 +15,7 @@ lark-cli apps +create --name "待办应用" --app-type full_stack \
 
 lark-cli apps +session-create --app-id app_xxx
 lark-cli apps +chat --app-id app_xxx --session-id sess_xxx --message "做一个待办清单页面"
-lark-cli apps +session-read --app-id app_xxx --session-id sess_xxx
+lark-cli apps +session-get --app-id app_xxx --session-id sess_xxx
 lark-cli apps +session-list --app-id app_xxx
 ```
 
@@ -23,17 +23,17 @@ lark-cli apps +session-list --app-id app_xxx
 
 云端会话的完成态和应用发布态分开判断：
 
-- `+session-read` 返回 `is_streaming=false` 且 `latest_turn.status=completed`，只说明本轮云端生成/迭代结束。
+- `+session-get` 返回 `is_streaming=false` 且 `latest_turn.status=completed`，只说明本轮云端生成/迭代结束。
 - 这不会自动证明最新版本已经发布部署，也不能证明用户拿到的发布态 URL 指向最新内容。
 - `+list` 的 `is_published=true` 只说明应用历史上已有发布版本；不要把它当作“最新云端生成结果已部署”的证据。
-- 若用户要“最新可访问链接”或“确认已上线”，必须先走发布链路并确认完成：全栈应用用 `+publish` -> `+publish-status`，HTML 应用用 `+html-publish`。
+- 若用户要”最新可访问链接”或”确认已上线”，必须先走发布链路并确认完成：全栈应用用 `+release-create` -> `+release-get`，HTML 应用用 `+html-publish`。
 
 ## 链接交付
 
 云端搭建完成后，给用户区分两类链接：
 
 - 开发态链接：拿到 `app_id` 后即可拼 `https://miaoda.feishu.cn/app/{app_id}`，例如 `https://miaoda.feishu.cn/app/app_xxx`。
-- 发布态访问链接：只有在发布动作已完成时才提供。全栈应用在 `+publish-status` 返回 `finished` 时，该命令输出已含 `online_url`，直接读取（`failed` 时其输出已含 `error_logs` 给出失败原因；`+list` 仅作独立查询入口）；HTML 应用使用 `+html-publish` 返回的 `data.url`。
+- 发布态访问链接：只有在发布动作已完成时才提供。全栈应用在 `+release-get` 返回 `finished` 时，该命令输出已含 `online_url`，直接读取（`failed` 时其输出已含 `error_logs` 给出失败原因；`+list` 仅作独立查询入口）；HTML 应用使用 `+html-publish` 返回的 `data.url`。
 
 如果只完成了云端会话、没有确认发布完成，就明确告诉用户“开发态链接可进入继续编辑，发布态是否为最新版本尚未确认”。
 
@@ -62,7 +62,7 @@ lark-cli apps +session-list --app-id app_xxx
 
 1. 本地存在该 app 的项目目录（已 `+init` 或 clone 过），**且** git commit 数 > 2；
 2. 应用维度（云端）至少有一个已提交的版本，按以下任一信号判断：
-   - `lark-cli apps +session-read --app-id <app_id> --session-id <session_id>` 的返回里出现已提交版本信息；
+   - `lark-cli apps +session-get --app-id <app_id> --session-id <session_id>` 的返回里出现已提交版本信息；
    - 在 `lark-cli apps +list`（必要时配 `--keyword <name>` 定位）的目标 app 条目里 `is_published: true`。
 
 **未初始化**（两个条件同时成立）：
@@ -77,17 +77,17 @@ lark-cli apps +session-list --app-id app_xxx
 | 已初始化 → **增量修改** | 云端 Agent 在已有云端工作区上对**已提交代码**做局部修改，跳过方案设计与首次生成 | 通常分钟级 | `next_poll_after_ms` 为空时 5-10 秒一次 |
 | 未初始化 → **首次初始化 + 生成** | 服务端跑完整的应用初始化流程：需求分析、技术方案、数据模型、UI 与后端代码生成、首版代码提交到云端工作区 | 视需求复杂度，**通常 20~50 分钟** | `next_poll_after_ms` 为空时 60-120 秒一次 |
 
-初始化阶段 `+session-read` 可能长时间持续返回 `building` / `running`，是正常状态，**不要按失败处理，也不要催用户**。
+初始化阶段 `+session-get` 可能长时间持续返回 `building` / `running`，是正常状态，**不要按失败处理，也不要催用户**。
 
 ## 轮询规则
 
 - `+chat` 异步，只返回 `next_poll_after_ms`，不返回 `turn_id`。
-- 等待 `next_poll_after_ms` 后调用 `+session-read`；由 agent 驱动轮询。`next_poll_after_ms` 为空时，按 [初始化 vs 增量修改](#初始化-vs-增量修改) 的判定选择节奏：增量 5-10 秒一次，初始化 60-120 秒一次。
+- 等待 `next_poll_after_ms` 后调用 `+session-get`；由 agent 驱动轮询。`next_poll_after_ms` 为空时，按 [初始化 vs 增量修改](#初始化-vs-增量修改) 的判定选择节奏：增量 5-10 秒一次，初始化 60-120 秒一次。
 - 不知道已有 session 时先 `+session-list --app-id <id>`，再选最近活跃或让用户确认。
 - `is_streaming=true`、`building` / `running` / `streaming` 表示仍在生成，继续轮询，不傻等也不提前放弃。初始化阶段单次 sleep 拉到 60-120 秒；进入 `streaming` 或属增量修改时切回 5-10 秒。
 - `is_streaming=false` 且 `latest_turn.status=completed` 表示本轮完成，可发下一条。
 - `failed` / `cancelled` 时转述错误字段或 hint，询问是否重试。
-- 要中止正在运行的一轮，从 `+session-read` 的 `latest_turn.turnID` 取值，再调用：
+- 要中止正在运行的一轮，从 `+session-get` 的 `latest_turn.turnID` 取值，再调用：
 
 ```bash
 lark-cli apps +session-stop --app-id app_xxx --session-id sess_xxx --turn-id turn_xxx
