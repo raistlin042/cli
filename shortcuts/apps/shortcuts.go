@@ -28,7 +28,7 @@ func Shortcuts() []common.Shortcut {
 		AppsGitCredentialRemove,
 		AppsSessionCreate,
 		AppsSessionList,
-		AppsSessionRead,
+		AppsSessionGet,
 		AppsSessionStop,
 		AppsChat,
 	}

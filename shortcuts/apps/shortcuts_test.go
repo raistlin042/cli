@@ -11,7 +11,7 @@ import (
 
 // 钉死域内 shortcut 数量。少一条（漏挂）或多一条（误加）都会被这个测试拦截。
 // 6 基础 + 1 init + 3 publish + 1 env-pull + 4 db（table-list/table-schema/sql/dev-init）
-// + 3 git-credential + 5 session（create/list/read/stop/chat）= 23。
+// + 3 git-credential + 5 session（create/list/get/stop/chat）= 23。
 func TestAppsShortcuts_Returns23(t *testing.T) {
 	got := Shortcuts()
 	if len(got) != 23 {
@@ -24,7 +24,7 @@ func TestAppsShortcuts_IncludesSessionCommands(t *testing.T) {
 	want := map[string]bool{
 		"+session-create": false,
 		"+session-list":   false,
-		"+session-read":   false,
+		"+session-get":    false,
 		"+session-stop":   false,
 		"+chat":           false,
 	}
