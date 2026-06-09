@@ -1260,3 +1260,127 @@ func TestCommitAndPushIfDirty_Branches(t *testing.T) {
 		}
 	})
 }
+
+func TestAppsInit_EnvPull_Success(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {},
+		"env-pull":        envPullOK("/abs/app_x/.env.local"),
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	data := parseEnvelopeData(t, stdout)
+	if data["env_pulled"] != true {
+		t.Errorf("env_pulled = %v, want true", data["env_pulled"])
+	}
+	if data["env_file"] != "/abs/app_x/.env.local" {
+		t.Errorf("env_file = %v", data["env_file"])
+	}
+	// env-pull invoked with forwarded --as user and the expected flags
+	var ep []string
+	for _, c := range f.calls {
+		if containsAll(c, "+env-pull") {
+			ep = c
+			break
+		}
+	}
+	if ep == nil || !containsAll(ep, "--app-id", "app_x", "--project-path", "--as", "user", "--format", "json") {
+		t.Errorf("+env-pull not invoked with expected args: %v", f.calls)
+	}
+}
+
+func TestAppsInit_EnvPull_NonFatal(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{
+		"credential-init": credInitOK("http://u:t@h/app_x.git"),
+		"git clone":       {},
+		"git checkout":    {},
+		"git ls-files":    {stdout: ""},
+		"git status":      {},
+		"env-pull": {
+			stderr: `{"ok":false,"error":{"type":"missing_scope","message":"need spark:app:read"}}`,
+			err:    fmt.Errorf("exit status 2"),
+		},
+	}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("env-pull failure must be non-fatal, got: %v", err)
+	}
+	data := parseEnvelopeData(t, stdout)
+	if data["env_pulled"] != false {
+		t.Errorf("env_pulled = %v, want false", data["env_pulled"])
+	}
+	if data["env_pull_error"] != "missing_scope: need spark:app:read" {
+		t.Errorf("env_pull_error = %v", data["env_pull_error"])
+	}
+	if _, ok := data["env_file"]; ok {
+		t.Errorf("env_file must be absent on failure: %v", data["env_file"])
+	}
+	msg, _ := data["message"].(string)
+	if !strings.Contains(msg, "+env-pull --app-id app_x") {
+		t.Errorf("message missing retry hint: %q", msg)
+	}
+	if strings.Contains(stdout.String(), "u:t@h") {
+		t.Errorf("raw credential leaked: %s", stdout.String())
+	}
+}
+
+func TestAppsInit_AlreadyInitialized_SkipsEnvPull(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(abs, ".spark"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(abs, metaRelPath), []byte(`{"app_id":"app_x"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, c := range f.calls {
+		if containsAll(c, "+env-pull") {
+			t.Errorf("already-initialized path must NOT call +env-pull: %v", f.calls)
+		}
+	}
+	data := parseEnvelopeData(t, stdout)
+	if _, ok := data["env_pulled"]; ok {
+		t.Errorf("already-initialized output must not carry env_pulled: %v", data)
+	}
+}
+
+func TestAppsInit_DryRun_DescribesEnvPull(t *testing.T) {
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{}}
+	withFakeRunner(t, f)
+	factory, stdout, _ := newAppsExecuteFactory(t)
+	dir := relCloneDir(t)
+	if err := runAppsShortcut(t, AppsInit, []string{"+init", "--app-id", "app_x", "--dir", dir, "--as", "user", "--dry-run"}, factory, stdout); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(stdout.Bytes(), &m); err != nil {
+		t.Fatalf("decode dry-run: %v (raw=%q)", err, stdout.String())
+	}
+	ep, _ := m["env_pull"].(string)
+	if !strings.Contains(ep, "+env-pull") {
+		t.Errorf("dry-run missing env_pull step: %v", m)
+	}
+	for _, c := range f.calls {
+		if containsAll(c, "+env-pull") {
+			t.Errorf("dry-run must not execute +env-pull: %v", f.calls)
+		}
+	}
+}

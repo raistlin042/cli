@@ -92,7 +92,8 @@ var AppsInit = common.Shortcut{
 			Set("checkout", "git checkout "+defaultInitBranch).
 			Set("scaffold", fmt.Sprintf("empty repo: npx -y --prefer-online %s app init --template %s --app-id %s; non-empty: npx -y --prefer-online %s app sync + .spark/meta.json app_id patch + conditional skills sync --local", miaodaCLIPkg, template, appID, miaodaCLIPkg)).
 			Set("commit_push", "conditional: git add -A + commit + push origin "+defaultInitBranch+" when the working tree has changes").
-			Set("template", template)
+			Set("template", template).
+			Set("env_pull", fmt.Sprintf("apps +env-pull --app-id %s --project-path <clone_path> --format json (after successful init)", appID))
 		dir, err := resolveTargetPath(rctx, appID)
 		if err != nil {
 			dry.Set("dir_error", err.Error())
@@ -441,6 +442,15 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		initLogf(rctx, "Working tree clean — skipped commit/push")
 	}
 
+	initLogf(rctx, "Pulling local environment variables...")
+	envFile, envPullErr := pullEnv(ctx, rctx, appID, dir)
+	envPulled := envPullErr == ""
+	if envPulled {
+		initLogf(rctx, "Local environment written to %s", envFile)
+	} else {
+		initLogf(rctx, "Could not pull local env vars: %s", envPullErr)
+	}
+
 	out := map[string]interface{}{
 		"app_id":         appID,
 		"repository_url": redactURLCredentials(repoURL),
@@ -449,11 +459,24 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 		"scaffold":       scaffold,
 		"committed":      committed,
 		"pushed":         pushed,
+		"env_pulled":     envPulled,
 		"message":        "Repository initialized. You can start developing.",
+	}
+	if envPulled {
+		out["env_file"] = envFile
+	} else {
+		out["env_pull_error"] = envPullErr
+		out["message"] = fmt.Sprintf("Repository initialized. Could not pull local env vars automatically — run `lark-cli apps +env-pull --app-id %s` to retry.", appID)
 	}
 	rctx.OutFormat(out, nil, func(w io.Writer) {
 		fmt.Fprintf(w, "✓ Repository initialized at %s\n", dir)
 		fmt.Fprintf(w, "  branch: %s\n  scaffold: %s\n", defaultInitBranch, scaffold)
+		if envPulled {
+			fmt.Fprintf(w, "✓ Local environment written to %s\n", envFile)
+		} else {
+			fmt.Fprintf(w, "⚠ Could not pull local env vars: %s\n", envPullErr)
+			fmt.Fprintf(w, "  run `lark-cli apps +env-pull --app-id %s` to retry\n", appID)
+		}
 		fmt.Fprintln(w, "仓库已初始化完成，可以开始开发了。")
 	})
 	return nil
