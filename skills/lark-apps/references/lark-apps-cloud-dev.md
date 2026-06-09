@@ -62,7 +62,7 @@ lark-cli apps +session-list --app-id app_xxx
 云端搭建完成后，给用户区分两类链接：
 
 - 开发态链接：拿到 `app_id` 后即可拼 `https://miaoda.feishu.cn/app/{app_id}`，例如 `https://miaoda.feishu.cn/app/app_xxx`。
-- 发布态访问链接：只有在发布动作已完成时才提供。全栈应用在 `+publish-status` 返回 `finished` 后，用 `+list` 读取 `online_url`；HTML 应用使用 `+html-publish` 返回的 `data.url`。
+- 发布态访问链接：只有在发布动作已完成时才提供。全栈应用在 `+publish-status` 返回 `finished` 时，该命令输出已含 `online_url`，直接读取（`failed` 时其输出已含 `error_logs` 给出失败原因；`+list` 仅作独立查询入口）；HTML 应用使用 `+html-publish` 返回的 `data.url`。
 
 如果只完成了云端会话、没有确认发布完成，就明确告诉用户“开发态链接可进入继续编辑，发布态是否为最新版本尚未确认”。
 
@@ -86,6 +86,43 @@ lark-cli apps +session-list --app-id app_xxx
 - 不知道某 app 有哪些 session 时，先 `+session-list --app-id <id>`，再选最近活跃的或让用户确认，别直接猜 `session_id`。
 - `latest_turn.status` 为 `failed` / `cancelled` 时，由用户决定是否重试，不要静默重发。
 - 要中止正在运行的一轮，从 `+session-read` 的 `latest_turn.turn_id` 取值，再调用：
+- 
+## 初始化 vs 增量修改
+
+`+chat` 单轮的耗时差距很大，取决于目标 app 是否**已初始化**。两者的轮询节奏不同，**`+chat` 前先把状态判定清楚**，不要拿"是不是第一次发消息"当代理判断——session 是新建的不代表 app 没初始化过。
+
+### 判定规则
+
+**已初始化**（满足任一即认为已初始化）：
+
+1. 本地存在该 app 的项目目录（已 `+init` 或 clone 过），**且** git commit 数 > 2；
+2. 应用维度（云端）至少有一个已提交的版本，按以下任一信号判断：
+   - `lark-cli apps +session-read --app-id <app_id> --session-id <session_id>` 的返回里出现已提交版本信息；
+   - 在 `lark-cli apps +list`（必要时配 `--keyword <name>` 定位）的目标 app 条目里 `is_published: true`。
+
+**未初始化**（两个条件同时成立）：
+
+1. 本地不存在该 app 的项目目录；
+2. 应用维度没有任何已提交版本（即上面两路云端信号都判 false）。
+
+### 两种 `+chat` 的行为
+
+| 状态 | 服务端动作 | 单轮耗时 | 轮询建议 |
+|---|---|---|---|
+| 已初始化 → **增量修改** | 云端 Agent 在已有云端工作区上对**已提交代码**做局部修改，跳过方案设计与首次生成 | 通常分钟级 | `next_poll_after_ms` 为空时 5-10 秒一次 |
+| 未初始化 → **首次初始化 + 生成** | 服务端跑完整的应用初始化流程：需求分析、技术方案、数据模型、UI 与后端代码生成、首版代码提交到云端工作区 | 视需求复杂度，**通常 20~50 分钟** | `next_poll_after_ms` 为空时 60-120 秒一次 |
+
+初始化阶段 `+session-read` 可能长时间持续返回 `building` / `running`，是正常状态，**不要按失败处理，也不要催用户**。
+
+## 轮询规则
+
+- `+chat` 异步，只返回 `next_poll_after_ms`，不返回 `turn_id`。
+- 等待 `next_poll_after_ms` 后调用 `+session-read`；由 agent 驱动轮询。`next_poll_after_ms` 为空时，按 [初始化 vs 增量修改](#初始化-vs-增量修改) 的判定选择节奏：增量 5-10 秒一次，初始化 60-120 秒一次。
+- 不知道已有 session 时先 `+session-list --app-id <id>`，再选最近活跃或让用户确认。
+- `is_streaming=true`、`building` / `running` / `streaming` 表示仍在生成，继续轮询，不傻等也不提前放弃。初始化阶段单次 sleep 拉到 60-120 秒；进入 `streaming` 或属增量修改时切回 5-10 秒。
+- `is_streaming=false` 且 `latest_turn.status=completed` 表示本轮完成，可发下一条。
+- `failed` / `cancelled` 时转述错误字段或 hint，询问是否重试。
+- 要中止正在运行的一轮，从 `+session-read` 的 `latest_turn.turnID` 取值，再调用：
 
 ```bash
 lark-cli apps +session-stop --app-id app_xxx --session-id sess_xxx --turn-id turn_xxx
