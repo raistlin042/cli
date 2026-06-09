@@ -249,7 +249,27 @@ func TestAppsReleaseGetPrettyNoCommitID(t *testing.T) {
 		t.Fatalf("Execute() = %v", err)
 	}
 	if strings.Contains(stdoutBuf.String(), "commit_id:") {
-		t.Errorf("no commit_id field must not print commit_id line, got:\n%s", stdoutBuf.String())
+		t.Errorf("absent commit_id must not print commit_id line, got:\n%s", stdoutBuf.String())
+	}
+}
+
+func TestAppsReleaseGetPrettyEmptyCommitID(t *testing.T) {
+	rctx, stdoutBuf, reg := newStatusRuntimeContext(t, "app_x", "12")
+	rctx.Format = "pretty"
+	reg.Register(&httpmock.Stub{
+		Method: "GET", URL: "/open-apis/spark/v1/apps/app_x/releases/12",
+		Body: map[string]interface{}{"code": 0, "msg": "",
+			"data": map[string]interface{}{"release": map[string]interface{}{
+				"release_id": "12", "status": "publishing",
+				"created_at": "1700000000000", "updated_at": "1700000000000",
+				"commit_id": "",
+			}}},
+	})
+	if err := AppsReleaseGet.Execute(context.Background(), rctx); err != nil {
+		t.Fatalf("Execute() = %v", err)
+	}
+	if strings.Contains(stdoutBuf.String(), "commit_id:") {
+		t.Errorf("empty commit_id must not print commit_id line, got:\n%s", stdoutBuf.String())
 	}
 }
 
