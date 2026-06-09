@@ -51,6 +51,7 @@ lark-cli apps +session-list --app-id app_xxx
 | 已知 app_id，用户没指定会话 | 先 `+session-list`；有活跃会话时问用户继续现有还是新开 |
 | 用户说“新开一段/换个话题” | `+session-create` 后再 `+chat` |
 | 用户说“接着刚才” | 复用上下文 session_id；拿不到就 `+session-list` 让用户选 |
+| 用户问会话“进行到哪一步/当前状态/最新进展” | 用 `+session-get --session-id <sid>` 读状态。`+session-list` 只负责发现/选择会话，不含执行状态；它返回空不等于无状态可查（session_id 也可能来自上下文），别用 `+session-list`/`+release-list` 代替 `+session-get` 回答进度 |
 
 ## 初始化 vs 增量修改
 
