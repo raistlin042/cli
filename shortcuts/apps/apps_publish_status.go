@@ -43,14 +43,14 @@ var AppsPublishStatus = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
 		dry := common.NewDryRunAPI()
-		dry.GET(fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
+		dry.GET(fmt.Sprintf(releaseGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))).
 			Desc("Get release detail")
 		return dry
 	},
 	Execute: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		releaseID := strings.TrimSpace(rctx.Str("release-id"))
-		path := fmt.Sprintf(publishGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
+		path := fmt.Sprintf(releaseGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
 		data, err := rctx.CallAPITyped("GET", path, nil, nil)
 		if err != nil {
 			return withAppsHint(err, "if the release_id is unknown or invalid, list this app's releases with `lark-cli apps +publish-history --app-id "+appID+"`")

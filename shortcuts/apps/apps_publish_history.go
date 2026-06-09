@@ -45,7 +45,7 @@ var AppsPublishHistory = common.Shortcut{
 		limit := rctx.Int("limit")
 		pageToken := strings.TrimSpace(rctx.Str("page-token"))
 		dry := common.NewDryRunAPI()
-		dry.GET(fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))).
+		dry.GET(fmt.Sprintf(releaseListPath, validate.EncodePathSegment(appID))).
 			Desc("List release history").
 			Params(buildHistoryQuery(status, limit, pageToken))
 		return dry
@@ -55,7 +55,7 @@ var AppsPublishHistory = common.Shortcut{
 		status := strings.TrimSpace(rctx.Str("status"))
 		limit := rctx.Int("limit")
 		pageToken := strings.TrimSpace(rctx.Str("page-token"))
-		path := fmt.Sprintf(publishListPath, validate.EncodePathSegment(appID))
+		path := fmt.Sprintf(releaseListPath, validate.EncodePathSegment(appID))
 		data, err := rctx.CallAPITyped("GET", path, buildHistoryQuery(status, limit, pageToken), nil)
 		if err != nil {
 			return err

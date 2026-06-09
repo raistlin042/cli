@@ -18,7 +18,6 @@ func Shortcuts() []common.Shortcut {
 		AppsPublish,
 		AppsPublishHistory,
 		AppsPublishStatus,
-		AppsPublishErrorLog,
 		AppsEnvPull,
 		AppsDBTableList,
 		AppsDBTableGet,
