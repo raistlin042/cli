@@ -28,4 +28,4 @@ lark-cli apps +release-list --app-id app_xxx --status failed
 
 ## Agent 规则
 
-用户说"最近一次发布"时先 `--page-size 1`。
+用户限定只看 N 条（"最近 N 条""最新 N 个""只要前 N 条"）时用 `--page-size N`（如"最近一次发布"→ `--page-size 1`），而不是取全量再本地截断。
