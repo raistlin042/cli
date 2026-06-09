@@ -459,6 +459,36 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	return nil
 }
 
+// pullEnv runs `<self> apps +env-pull --app-id <appID> --project-path <dir>
+// --format json`, forwarding --as when set. Returns (envFile, "") on success or
+// ("", reason) on failure. Non-fatal by contract: the caller logs a warning and
+// continues. The success envelope is read from stdout, the error envelope from
+// stderr (lark-cli writes structured errors to stderr; see cmd/root.go
+// handleRootError). The reason is always redacted.
+func pullEnv(ctx context.Context, rctx *common.RuntimeContext, appID, dir string) (envFile, reason string) {
+	self, err := os.Executable()
+	if err != nil {
+		return "", redactURLCredentials(fmt.Sprintf("cannot locate lark-cli executable: %v", err))
+	}
+	args := []string{"apps", "+env-pull", "--app-id", appID, "--project-path", dir, "--format", "json"}
+	if as := strings.TrimSpace(rctx.Str("as")); as != "" {
+		args = append(args, "--as", as)
+	}
+	stdout, stderr, runErr := initRunner.Run(ctx, "", self, args...)
+	if runErr != nil {
+		r := parseEnvPullErrorEnvelope(stderr)
+		if r == "" {
+			r = gitErr(stderr, runErr)
+		}
+		return "", redactURLCredentials(r)
+	}
+	envFile, perr := parseEnvFileFromEnvelope(stdout)
+	if perr != nil {
+		return "", redactURLCredentials(perr.Error())
+	}
+	return envFile, ""
+}
+
 // issueCredentials runs `<self> apps +git-credential-init --app-id <id> --format json`
 // and returns the repo_url it reports. Forwards --as when set.
 func issueCredentials(ctx context.Context, rctx *common.RuntimeContext, appID string) (string, error) {

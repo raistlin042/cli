@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -989,6 +990,54 @@ func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func envPullOK(envFile string) fakeCallResult {
+	return fakeCallResult{stdout: `{"ok":true,"data":{"env_file":"` + envFile + `"}}`}
+}
+
+// testRuntimeForEnvPull builds a minimal RuntimeContext exposing the --as flag,
+// which is all pullEnv reads.
+func testRuntimeForEnvPull(t *testing.T, as string) *common.RuntimeContext {
+	t.Helper()
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().String("as", as, "")
+	return common.TestNewRuntimeContext(cmd, nil)
+}
+
+func TestPullEnv(t *testing.T) {
+	// success: stdout envelope parsed; subprocess invoked with expected args
+	f := &fakeCommandRunner{results: map[string]fakeCallResult{"env-pull": envPullOK("/abs/app_x/.env.local")}}
+	withFakeRunner(t, f)
+	rctx := testRuntimeForEnvPull(t, "")
+	envFile, reason := pullEnv(context.Background(), rctx, "app_x", "/abs/app_x")
+	if reason != "" || envFile != "/abs/app_x/.env.local" {
+		t.Fatalf("success: envFile=%q reason=%q", envFile, reason)
+	}
+	// findCallArg matches c[1] against name; for self-invocations c[1] is the
+	// test binary path (unknown at compile time), so search the args slice
+	// directly for the expected ordered subsequence.
+	var c []string
+	for _, call := range f.calls {
+		if findCallArg([][]string{call}, call[1], "apps", "+env-pull", "--app-id", "app_x", "--project-path", "/abs/app_x", "--format", "json") != nil {
+			c = call
+			break
+		}
+	}
+	if c == nil {
+		t.Errorf("+env-pull not invoked with expected args: %v", f.calls)
+	}
+
+	// failure: non-zero exit + stderr error envelope -> reason, env_file empty
+	f2 := &fakeCommandRunner{results: map[string]fakeCallResult{"env-pull": {
+		stderr: `{"ok":false,"error":{"type":"missing_scope","message":"need spark:app:read"}}`,
+		err:    fmt.Errorf("exit status 2"),
+	}}}
+	withFakeRunner(t, f2)
+	envFile2, reason2 := pullEnv(context.Background(), testRuntimeForEnvPull(t, ""), "app_x", "/abs/app_x")
+	if envFile2 != "" || reason2 != "missing_scope: need spark:app:read" {
+		t.Fatalf("failure: envFile=%q reason=%q", envFile2, reason2)
 	}
 }
 
