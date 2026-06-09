@@ -20,14 +20,12 @@ const (
 )
 
 // writeReleaseErrorLogTable renders a release's error_logs (a slice of
-// {step, error_log} maps from the gateway) as a two-column table. Shared by
-// +publish-error-log and +publish-status so both render failures identically.
-// Non-slice or empty input prints nothing rows.
+// {step, error_log} maps from the gateway) as a two-column step/error_log
+// table via output.PrintTable. Shared by +publish-error-log and
+// +publish-status so both render failures identically. A nil/non-slice or
+// empty value yields an empty table (PrintTable prints "(no data)").
 func writeReleaseErrorLogTable(w io.Writer, raw interface{}) {
-	logs, ok := raw.([]interface{})
-	if !ok {
-		return
-	}
+	logs, _ := raw.([]interface{})
 	rows := make([]map[string]interface{}, 0, len(logs))
 	for _, l := range logs {
 		m, ok := l.(map[string]interface{})
