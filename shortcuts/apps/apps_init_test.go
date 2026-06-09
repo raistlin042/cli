@@ -1093,6 +1093,33 @@ func TestEnsureEmptyDir_RejectsNonDirAndNonEmpty(t *testing.T) {
 	})
 }
 
+func TestParseEnvFileFromEnvelope(t *testing.T) {
+	got, err := parseEnvFileFromEnvelope(`{"ok":true,"data":{"env_file":"/abs/app_x/.env.local"}}`)
+	if err != nil || got != "/abs/app_x/.env.local" {
+		t.Fatalf("got %q err %v", got, err)
+	}
+	for _, in := range []string{``, `not json`, `{"ok":false,"data":{}}`, `{"ok":true,"data":{}}`, `{"ok":true,"data":{"env_file":""}}`} {
+		if _, err := parseEnvFileFromEnvelope(in); err == nil {
+			t.Errorf("expected error for %q", in)
+		}
+	}
+}
+
+func TestParseEnvPullErrorEnvelope(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{`{"ok":false,"error":{"type":"missing_scope","message":"need spark:app:read"}}`, "missing_scope: need spark:app:read"},
+		{`{"ok":false,"error":{"message":"boom"}}`, "boom"},
+		{`not json`, ""},
+		{`{"ok":false,"error":{}}`, ""},
+		{``, ""},
+	}
+	for _, c := range cases {
+		if got := parseEnvPullErrorEnvelope(c.in); got != c.want {
+			t.Errorf("parseEnvPullErrorEnvelope(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestEnsureMetaAppID_MalformedJSON(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".spark"), 0o755); err != nil {

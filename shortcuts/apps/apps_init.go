@@ -313,6 +313,50 @@ func parseRepoURLFromEnvelope(stdout string) (string, error) {
 	return env.Data.RepositoryURL, nil
 }
 
+// parseEnvFileFromEnvelope extracts data.env_file from a `+env-pull` success
+// envelope ({"ok":true,"data":{"env_file":"..."}}) on stdout.
+func parseEnvFileFromEnvelope(stdout string) (string, error) {
+	var env struct {
+		OK   bool `json:"ok"`
+		Data struct {
+			EnvFile string `json:"env_file"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &env); err != nil {
+		return "", output.Errorf(output.ExitInternal, "env_pull", "could not parse +env-pull output as JSON: %v", err)
+	}
+	if !env.OK {
+		return "", output.Errorf(output.ExitInternal, "env_pull", "+env-pull reported failure")
+	}
+	if strings.TrimSpace(env.Data.EnvFile) == "" {
+		return "", output.Errorf(output.ExitInternal, "env_pull", "+env-pull returned no env_file")
+	}
+	return env.Data.EnvFile, nil
+}
+
+// parseEnvPullErrorEnvelope extracts a single-line reason from a `+env-pull`
+// error envelope ({"ok":false,"error":{"type":...,"message":...}}) on stderr.
+// Returns "" when stderr is not a parseable error envelope (caller falls back).
+func parseEnvPullErrorEnvelope(stderr string) string {
+	var env struct {
+		Error struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stderr)), &env); err != nil {
+		return ""
+	}
+	msg := strings.TrimSpace(env.Error.Message)
+	if msg == "" {
+		return ""
+	}
+	if t := strings.TrimSpace(env.Error.Type); t != "" {
+		return t + ": " + msg
+	}
+	return msg
+}
+
 // validateRepoURLScheme rejects any repository_url that is not http(s):// to
 // block git's dangerous transports (ext::, file://, ssh://) and option injection.
 func validateRepoURLScheme(repoURL string) error {
