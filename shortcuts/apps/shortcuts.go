@@ -17,7 +17,7 @@ func Shortcuts() []common.Shortcut {
 		AppsInit,
 		AppsReleaseCreate,
 		AppsReleaseList,
-		AppsPublishStatus,
+		AppsReleaseGet,
 		AppsEnvPull,
 		AppsDBTableList,
 		AppsDBTableGet,

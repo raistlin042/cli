@@ -14,21 +14,21 @@ import (
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
-// AppsPublishStatus fetches a single release's detail by release ID.
-var AppsPublishStatus = common.Shortcut{
+// AppsReleaseGet fetches a single release's detail by release ID.
+var AppsReleaseGet = common.Shortcut{
 	Service:     appsService,
-	Command:     "+publish-status",
+	Command:     "+release-get",
 	Description: "Get a single release's status/detail by release ID",
 	Risk:        "read",
 	Tips: []string{
-		"Example: lark-cli apps +publish-status --app-id <app_id> --release-id <release_id>",
+		"Example: lark-cli apps +release-get --app-id <app_id> --release-id <release_id>",
 	},
 	Scopes:    []string{"spark:app:read"},
 	AuthTypes: []string{"user"},
 	HasFormat: true,
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "Miaoda app ID", Required: true},
-		{Name: "release-id", Desc: "release ID (the release_id returned by +publish)", Required: true},
+		{Name: "release-id", Desc: "release ID (the release_id returned by +release-create)", Required: true},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
@@ -53,7 +53,7 @@ var AppsPublishStatus = common.Shortcut{
 		path := fmt.Sprintf(releaseGetPath, validate.EncodePathSegment(appID), validate.EncodePathSegment(releaseID))
 		data, err := rctx.CallAPITyped("GET", path, nil, nil)
 		if err != nil {
-			return withAppsHint(err, "if the release_id is unknown or invalid, list this app's releases with `lark-cli apps +publish-history --app-id "+appID+"`")
+			return withAppsHint(err, "if the release_id is unknown or invalid, list this app's releases with `lark-cli apps +release-list --app-id "+appID+"`")
 		}
 		out := data
 		if release, ok := data["release"].(map[string]interface{}); ok {
