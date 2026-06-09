@@ -3,6 +3,12 @@
 
 package apps
 
+import (
+	"io"
+
+	"github.com/larksuite/cli/internal/output"
+)
+
 // Gateway paths for the spark app.release OpenAPI methods.
 // Prefix reuses apiBasePath = "/open-apis/spark/v1" (same package).
 // Each path contains %s placeholders; use fmt.Sprintf to build the final URL.
@@ -12,3 +18,26 @@ const (
 	publishErrorLogPath = apiBasePath + "/apps/%s/releases/%s/error_logs"
 	publishListPath     = apiBasePath + "/apps/%s/releases"
 )
+
+// writeReleaseErrorLogTable renders a release's error_logs (a slice of
+// {step, error_log} maps from the gateway) as a two-column table. Shared by
+// +publish-error-log and +publish-status so both render failures identically.
+// Non-slice or empty input prints nothing rows.
+func writeReleaseErrorLogTable(w io.Writer, raw interface{}) {
+	logs, ok := raw.([]interface{})
+	if !ok {
+		return
+	}
+	rows := make([]map[string]interface{}, 0, len(logs))
+	for _, l := range logs {
+		m, ok := l.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		rows = append(rows, map[string]interface{}{
+			"step":      m["step"],
+			"error_log": m["error_log"],
+		})
+	}
+	output.PrintTable(w, rows)
+}
