@@ -19,7 +19,7 @@ func TestAppsChat_Success(t *testing.T) {
 		Body: map[string]interface{}{
 			"code": 0,
 			// v7.8: +chat is async and returns NO turn_id (turn not generated yet),
-			// only next_poll_after_ms. turn_id is read later from +session-read.
+			// only next_poll_after_ms. turn_id is read later from +session-get.
 			"data": map[string]interface{}{"next_poll_after_ms": 30000},
 		},
 	}

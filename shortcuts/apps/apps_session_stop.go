@@ -29,7 +29,7 @@ var AppsSessionStop = common.Shortcut{
 	Flags: []common.Flag{
 		{Name: "app-id", Desc: "app ID", Required: true},
 		{Name: "session-id", Desc: "session ID", Required: true},
-		{Name: "turn-id", Desc: "turn ID to stop (from +chat / +session-read latest_turn.turnID)", Required: true},
+		{Name: "turn-id", Desc: "turn ID to stop (from +chat / +session-get latest_turn.turnID)", Required: true},
 	},
 	Validate: func(ctx context.Context, rctx *common.RuntimeContext) error {
 		if strings.TrimSpace(rctx.Str("app-id")) == "" {
