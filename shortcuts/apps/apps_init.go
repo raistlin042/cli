@@ -49,11 +49,11 @@ const (
 // can swap in a fakeCommandRunner. Production uses execCommandRunner.
 var initRunner commandRunner = execCommandRunner{}
 
-// AppsInit initializes a Miaoda app's local development repository.
+// AppsInit initializes a Miaoda app's code and local development environment.
 var AppsInit = common.Shortcut{
 	Service:     appsService,
 	Command:     "+init",
-	Description: "Initialize a Miaoda app's local development repository",
+	Description: "Initialize a Miaoda app's code and local development environment",
 	Risk:        "write",
 	Tips: []string{
 		"Example: lark-cli apps +init --app-id <app_id> --dir <dir>",
@@ -87,7 +87,7 @@ var AppsInit = common.Shortcut{
 		appID := strings.TrimSpace(rctx.Str("app-id"))
 		template := resolveTemplate(rctx, appID)
 		dry := common.NewDryRunAPI().
-			Desc("Initialize Miaoda app repository (credential-init, clone, checkout, npx code-init, optional commit/push)").
+			Desc("Initialize Miaoda app code (credential-init, clone, checkout, npx code-init, optional commit/push)").
 			Set("credential_init", fmt.Sprintf("apps +git-credential-init --app-id %s --format json", appID)).
 			Set("checkout", "git checkout "+defaultInitBranch).
 			Set("scaffold", fmt.Sprintf("empty repo: npx -y --prefer-online %s app init --template %s --app-id %s; non-empty: npx -y --prefer-online %s app sync + .spark/meta.json app_id patch + conditional skills sync --local", miaodaCLIPkg, template, appID, miaodaCLIPkg)).

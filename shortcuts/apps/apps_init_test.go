@@ -1457,3 +1457,12 @@ func TestAppsInit_DryRun_DescribesEnvPull(t *testing.T) {
 		}
 	}
 }
+
+func TestAppsInit_Description_IsAboutCode(t *testing.T) {
+	if strings.Contains(strings.ToLower(AppsInit.Description), "local development repository") {
+		t.Errorf("Description should describe initializing app code, not a local dev repo: %q", AppsInit.Description)
+	}
+	if !strings.Contains(strings.ToLower(AppsInit.Description), "code") {
+		t.Errorf("Description should mention app code: %q", AppsInit.Description)
+	}
+}
