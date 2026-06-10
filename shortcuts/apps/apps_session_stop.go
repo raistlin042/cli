@@ -13,7 +13,7 @@ import (
 	"github.com/larksuite/cli/shortcuts/common"
 )
 
-const sessionStopHint = "verify --app-id and --session-id are correct (list sessions with `lark-cli apps +session-list --app-id <app_id>`); --turn-id must be the latest turn from `lark-cli apps +session-get`"
+const sessionStopHint = "verify --app-id and --session-id are correct (list sessions with `lark-cli apps +session-list --app-id <app_id>`); --turn-id must be the latest turn from `lark-cli apps +session-get --app-id <app_id> --session-id <session_id>`"
 
 // AppsSessionStop interrupts the RUNNING turn of a session. No-op if the turn
 // is queued or already finished. Does not close the session.

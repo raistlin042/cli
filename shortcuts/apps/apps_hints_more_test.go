@@ -30,7 +30,7 @@ func assertHintContains(t *testing.T, sc common.Shortcut, args []string, stub *h
 	}
 }
 
-func TestAppsSessionCreate_4xxCarriesListHint(t *testing.T) {
+func TestAppsSessionCreate_4xxFailureCarriesListHint(t *testing.T) {
 	assertHintContains(t, AppsSessionCreate,
 		[]string{"+session-create", "--app-id", "app_x", "--as", "user"},
 		&httpmock.Stub{Method: "POST", URL: "/open-apis/spark/v1/apps/app_x/sessions",
@@ -38,7 +38,7 @@ func TestAppsSessionCreate_4xxCarriesListHint(t *testing.T) {
 		"apps +list")
 }
 
-func TestAppsSessionList_4xxCarriesListHint(t *testing.T) {
+func TestAppsSessionList_4xxFailureCarriesListHint(t *testing.T) {
 	assertHintContains(t, AppsSessionList,
 		[]string{"+session-list", "--app-id", "app_x", "--as", "user"},
 		&httpmock.Stub{Method: "GET", URL: "/open-apis/spark/v1/apps/app_x/sessions",
@@ -46,7 +46,7 @@ func TestAppsSessionList_4xxCarriesListHint(t *testing.T) {
 		"apps +list")
 }
 
-func TestAppsUpdate_4xxCarriesListHint(t *testing.T) {
+func TestAppsUpdate_4xxFailureCarriesListHint(t *testing.T) {
 	assertHintContains(t, AppsUpdate,
 		[]string{"+update", "--app-id", "app_x", "--name", "n", "--as", "user"},
 		&httpmock.Stub{Method: "PATCH", URL: "/open-apis/spark/v1/apps/app_x",
@@ -54,7 +54,7 @@ func TestAppsUpdate_4xxCarriesListHint(t *testing.T) {
 		"apps +list")
 }
 
-func TestAppsReleaseList_4xxCarriesListHint(t *testing.T) {
+func TestAppsReleaseList_4xxFailureCarriesListHint(t *testing.T) {
 	assertHintContains(t, AppsReleaseList,
 		[]string{"+release-list", "--app-id", "app_x", "--as", "user"},
 		&httpmock.Stub{Method: "GET", URL: "/open-apis/spark/v1/apps/app_x/releases",
@@ -62,7 +62,7 @@ func TestAppsReleaseList_4xxCarriesListHint(t *testing.T) {
 		"apps +list")
 }
 
-func TestAppsSessionStop_4xxCarriesSessionHint(t *testing.T) {
+func TestAppsSessionStop_4xxFailureCarriesSessionHint(t *testing.T) {
 	assertHintContains(t, AppsSessionStop,
 		[]string{"+session-stop", "--app-id", "app_x", "--session-id", "s1", "--turn-id", "t1", "--as", "user"},
 		&httpmock.Stub{Method: "POST", URL: "/open-apis/spark/v1/apps/app_x/sessions/s1/stop",
@@ -70,7 +70,7 @@ func TestAppsSessionStop_4xxCarriesSessionHint(t *testing.T) {
 		"+session-list")
 }
 
-func TestAppsCreate_4xxCarriesTypeHint(t *testing.T) {
+func TestAppsCreate_4xxFailureCarriesTypeHint(t *testing.T) {
 	assertHintContains(t, AppsCreate,
 		[]string{"+create", "--name", "n", "--app-type", "html", "--as", "user"},
 		&httpmock.Stub{Method: "POST", URL: "/open-apis/spark/v1/apps",
@@ -78,7 +78,7 @@ func TestAppsCreate_4xxCarriesTypeHint(t *testing.T) {
 		"full_stack")
 }
 
-func TestAppsDBEnvCreate_4xxCarriesHint(t *testing.T) {
+func TestAppsDBEnvCreate_4xxFailureCarriesHint(t *testing.T) {
 	assertHintContains(t, AppsDBEnvCreate,
 		[]string{"+db-env-create", "--app-id", "app_x", "--env", "dev", "--yes", "--as", "user"},
 		&httpmock.Stub{Method: "POST", URL: "/open-apis/spark/v1/apps/app_x/db_dev_init",
@@ -86,7 +86,7 @@ func TestAppsDBEnvCreate_4xxCarriesHint(t *testing.T) {
 		"+db-table-list")
 }
 
-func TestAppsDBTableGet_4xxCarriesHint(t *testing.T) {
+func TestAppsDBTableGet_4xxFailureCarriesHint(t *testing.T) {
 	assertHintContains(t, AppsDBTableGet,
 		[]string{"+db-table-get", "--app-id", "app_x", "--table", "users", "--as", "user"},
 		&httpmock.Stub{Method: "GET", URL: "/open-apis/spark/v1/apps/app_x/tables/users",
@@ -94,7 +94,7 @@ func TestAppsDBTableGet_4xxCarriesHint(t *testing.T) {
 		"+db-table-list")
 }
 
-func TestAppsDBTableList_4xxCarriesHint(t *testing.T) {
+func TestAppsDBTableList_4xxFailureCarriesHint(t *testing.T) {
 	assertHintContains(t, AppsDBTableList,
 		[]string{"+db-table-list", "--app-id", "app_x", "--env", "dev", "--as", "user"},
 		&httpmock.Stub{Method: "GET", URL: "/open-apis/spark/v1/apps/app_x/tables",
