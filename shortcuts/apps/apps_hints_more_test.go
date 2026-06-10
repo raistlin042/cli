@@ -101,3 +101,29 @@ func TestAppsDBTableList_4xxFailureCarriesHint(t *testing.T) {
 			Status: http.StatusNotFound, Body: map[string]interface{}{"msg": "dev env not found"}},
 		"+db-env-create")
 }
+
+// withAppsHint must only fill an EMPTY hint; an upstream-provided hint wins.
+func TestWithAppsHint_DoesNotOverrideUpstreamHint(t *testing.T) {
+	upstream := &errs.Problem{Message: "boom", Hint: "upstream specific hint"}
+	got := withAppsHint(upstream, appIDListHint)
+	p, ok := errs.ProblemOf(got)
+	if !ok {
+		t.Fatalf("expected typed problem, got %T", got)
+	}
+	if p.Hint != "upstream specific hint" {
+		t.Fatalf("upstream hint was overridden: %q", p.Hint)
+	}
+}
+
+// withAppsHint fills the hint when empty and leaves Message untouched.
+func TestWithAppsHint_FillsEmptyHintKeepsMessage(t *testing.T) {
+	p0 := &errs.Problem{Message: "boom"}
+	got := withAppsHint(p0, appIDListHint)
+	p, _ := errs.ProblemOf(got)
+	if p.Hint != appIDListHint {
+		t.Fatalf("hint not filled: %q", p.Hint)
+	}
+	if p.Message != "boom" {
+		t.Fatalf("message mutated: %q", p.Message)
+	}
+}
