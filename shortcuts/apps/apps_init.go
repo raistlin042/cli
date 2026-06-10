@@ -377,19 +377,38 @@ func appsInitExecute(ctx context.Context, rctx *common.RuntimeContext) error {
 	}
 
 	// Already-initialized short-circuit: a dir containing .spark/meta.json is an
-	// initialized Miaoda app repo -> friendly no-op, no clone/scaffold.
+	// initialized Miaoda app repo -> skip clone/scaffold/commit, but still refresh
+	// the local env so a re-run picks up the latest startup env vars.
 	if isAlreadyInitialized(dir) {
-		initLogf(rctx, "Already initialized at %s — nothing to do", dir)
+		initLogf(rctx, "Already initialized at %s — refreshing local environment", dir)
 		out := map[string]interface{}{
 			"app_id":     appID,
 			"clone_path": dir,
 			"scaffold":   "already_initialized",
 			"committed":  false,
 			"pushed":     false,
-			"message":    "Repository already initialized. You can start developing.",
+		}
+		initLogf(rctx, "Pulling local environment variables...")
+		envFile, envPullErr := pullEnv(ctx, rctx, appID, dir)
+		envPulled := envPullErr == ""
+		out["env_pulled"] = envPulled
+		if envPulled {
+			initLogf(rctx, "Local environment written to %s", envFile)
+			out["env_file"] = envFile
+			out["message"] = "Repository already initialized. Local env refreshed — you can start developing."
+		} else {
+			initLogf(rctx, "Could not pull local env vars: %s", envPullErr)
+			out["env_pull_error"] = envPullErr
+			out["message"] = fmt.Sprintf("Repository already initialized. Could not pull local env vars automatically — run `lark-cli apps +env-pull --app-id %s` to retry.", appID)
 		}
 		rctx.OutFormat(out, nil, func(w io.Writer) {
 			fmt.Fprintf(w, "✓ Already initialized at %s\n", dir)
+			if envPulled {
+				fmt.Fprintf(w, "✓ Local environment written to %s\n", envFile)
+			} else {
+				fmt.Fprintf(w, "⚠ Could not pull local env vars: %s\n", envPullErr)
+				fmt.Fprintf(w, "  run `lark-cli apps +env-pull --app-id %s` to retry\n", appID)
+			}
 			fmt.Fprintln(w, "仓库已初始化完成，可以开始开发了。")
 		})
 		return nil
